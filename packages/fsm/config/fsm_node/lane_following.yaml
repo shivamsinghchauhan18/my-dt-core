@@ -2,6 +2,10 @@
 
 initial_state: "NORMAL_JOYSTICK_CONTROL"
 
+# Enhanced AprilTag stop management parameters
+enable_apriltag_stops: true
+apriltag_stop_distance_threshold: 1.0  # Start stop sequence at 1m
+apriltag_stop_duration: 2.0  # Stop for 2 seconds
 
 events: # Maps from subscribing topic to signal ids
   joystick_override_on:
@@ -19,6 +23,8 @@ nodes:
   line_detector_node: "line_detector_node/switch"
   lane_filter_node: "lane_filter_node/switch"
   ground_projection_node: "ground_projection_node/switch"
+  apriltag_detector_node: "apriltag_detector_node/switch"
+  stop_line_filter_node: "stop_line_filter_node/switch"
   # extras added
 
 
@@ -35,6 +41,8 @@ states:
       - lane_filter_node
       - line_detector_node
       - ground_projection_node
+      - apriltag_detector_node
+      - stop_line_filter_node
     lights: "GREEN"
   LANE_FOLLOWING:
     active_nodes:
@@ -42,6 +50,19 @@ states:
       - line_detector_node
       - lane_filter_node
       - ground_projection_node
+      - apriltag_detector_node
+      - stop_line_filter_node
     lights: "CAR_DRIVING"
+  APRILTAG_STOP:
+    active_nodes:
+      - anti_instagram
+      - line_detector_node
+      - lane_filter_node
+      - ground_projection_node
+      - apriltag_detector_node
+      - stop_line_filter_node
+    lights: "RED"
+    transitions:
+      joystick_override_on: "NORMAL_JOYSTICK_CONTROL"
 
 

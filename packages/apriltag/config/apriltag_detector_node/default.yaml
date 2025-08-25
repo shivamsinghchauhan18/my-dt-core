@@ -9,3 +9,9 @@ decode_sharpening: 0.25
 tag_size: 0.065
 detection_freq: -1
 rectify_alpha: 0.0
+
+# Multi-resolution detection parameters
+enable_multi_resolution: true
+scale_factors: [0.5, 1.0, 1.5, 2.0]
+confidence_threshold: 0.1
+distance_estimation_enabled: true

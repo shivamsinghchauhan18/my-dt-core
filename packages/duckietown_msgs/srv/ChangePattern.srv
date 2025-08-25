@@ -1,0 +1,5 @@
+# Service to change LED pattern
+string pattern_name
+---
+bool success
+string message

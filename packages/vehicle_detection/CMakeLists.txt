@@ -4,6 +4,9 @@ project(vehicle_detection)
 find_package(catkin REQUIRED COMPONENTS
   cv_bridge
   duckietown_msgs
+  geometry_msgs
+  sensor_msgs
+  image_processing
   roscpp
   rospy
 )

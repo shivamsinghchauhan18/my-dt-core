@@ -2,3 +2,9 @@ stop_distance: 0.22
 min_segs: 6
 off_time: 2
 max_y: 0.2
+
+# Precision stop control parameters
+enable_precision_stop: true
+precision_stop_distance: 0.30  # Target distance from AprilTag (30cm)
+deceleration_start_distance: 1.0  # Start decelerating at 1m
+stop_duration: 2.0  # Stop for 2 seconds

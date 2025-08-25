@@ -3,6 +3,15 @@
 #propagation
 use_propagation: True
 debug: True
+
+# Enhanced curve fitting parameters
+curve_fitting_enabled: true
+polynomial_degree: 2
+min_curve_points: 5
+extrapolation_distance: 1.0
+curve_smoothing_factor: 0.1
+curve_history_size: 10
+
 lane_filter_histogram_configuration:
   mean_d_0: 0
   mean_phi_0: 0
