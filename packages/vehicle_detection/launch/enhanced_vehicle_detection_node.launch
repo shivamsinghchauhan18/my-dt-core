@@ -1,0 +1,69 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- Enhanced Vehicle Detection Node Launch File -->
+    <!-- YOLO-based object detection with comprehensive monitoring -->
+    
+    <!-- Arguments -->
+    <arg name="veh" default="$(env VEHICLE_NAME)" doc="Name of the vehicle"/>
+    <arg name="config" default="baseline" doc="Configuration to use"/>
+    <arg name="param_file_name" default="default" doc="Configuration file name"/>
+    <arg name="model_path" default="yolov5s.pt" doc="Path to YOLO model file"/>
+    <arg name="device" default="auto" doc="Device for inference (cpu/cuda/auto)"/>
+    <arg name="confidence_threshold" default="0.6" doc="Detection confidence threshold"/>
+    <arg name="enable_debug" default="true" doc="Enable debug image output"/>
+    
+    <!-- Enhanced Vehicle Detection Node -->
+    <group ns="$(arg veh)">
+        <node name="enhanced_vehicle_detection_node" 
+              pkg="vehicle_detection" 
+              type="enhanced_vehicle_detection_node.py" 
+              output="screen" 
+              clear_params="true">
+            
+            <!-- Load configuration parameters -->
+            <rosparam file="$(find vehicle_detection)/config/enhanced_vehicle_detection_node/$(arg param_file_name).yaml" command="load"/>
+            
+            <!-- Override parameters from launch arguments -->
+            <param name="model_path" value="$(arg model_path)"/>
+            <param name="device" value="$(arg device)"/>
+            <param name="confidence_threshold" value="$(arg confidence_threshold)"/>
+            <param name="enable_debug_image" value="$(arg enable_debug)"/>
+            
+            <!-- Input topics -->
+            <remap from="~image" to="camera_node/image/compressed"/>
+            
+            <!-- Output topics -->
+            <remap from="~detections" to="enhanced_vehicle_detection_node/detections"/>
+            <remap from="~debug/detection_image/compressed" to="enhanced_vehicle_detection_node/debug/detection_image/compressed"/>
+            <remap from="~performance_status" to="enhanced_vehicle_detection_node/performance_status"/>
+        </node>
+        
+        <!-- Optional: Vehicle Filter Node for post-processing -->
+        <node name="vehicle_filter_node" 
+              pkg="vehicle_detection" 
+              type="vehicle_filter_node.py" 
+              output="screen"
+              if="$(eval arg('config') == 'with_filter')">
+            
+            <!-- Input from enhanced detection -->
+            <remap from="~detections" to="enhanced_vehicle_detection_node/detections"/>
+            
+            <!-- Output filtered results -->
+            <remap from="~filtered_detections" to="vehicle_detection/filtered_detections"/>
+        </node>
+    </group>
+    
+    <!-- Performance Monitoring (Optional) -->
+    <group ns="$(arg veh)" if="$(eval arg('enable_debug') == 'true')">
+        <!-- RQT Image View for debug visualization -->
+        <node name="detection_debug_viewer" 
+              pkg="rqt_image_view" 
+              type="rqt_image_view" 
+              args="/$(arg veh)/enhanced_vehicle_detection_node/debug/detection_image/compressed"
+              if="$(eval arg('enable_debug') == 'true')"/>
+    </group>
+    
+    <!-- Logging Configuration -->
+    <env name="ROSCONSOLE_CONFIG_FILE" value="$(find vehicle_detection)/config/enhanced_vehicle_detection_node/logging.conf"/>
+    
+</launch>

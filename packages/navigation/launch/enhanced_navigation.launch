@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<launch>
+    <!-- Enhanced Navigation Node with Risk Assessment -->
+    
+    <!-- Arguments -->
+    <arg name="veh" default="$(env VEHICLE_NAME)" doc="Name of vehicle. ex: megaman"/>
+    <arg name="config" default="baseline" doc="Specify a config."/>
+    <arg name="param_file_name" default="default" doc="Specify a param file. ex:megaman." />
+    
+    <!-- Enhanced Navigation Node -->
+    <group ns="$(arg veh)">
+        <node name="enhanced_navigation_node" pkg="navigation" type="enhanced_navigation_node.py" output="screen" clear_params="true">
+            <rosparam file="$(find navigation)/config/enhanced_navigation_node/$(arg param_file_name).yaml" command="load"/>
+            
+            <!-- Remap topics to connect with existing system -->
+            <remap from="~object_detections" to="yolo_detector/detections"/>
+            <remap from="~vehicle_state" to="car_cmd_switch_node/cmd"/>
+            <remap from="~camera_image" to="camera_node/image/compressed"/>
+            
+            <!-- Output topics -->
+            <remap from="~navigation_command" to="enhanced_navigation_node/car_cmd"/>
+            <remap from="~risk_assessment" to="enhanced_navigation_node/risk_status"/>
+            <remap from="~emergency_stop" to="enhanced_navigation_node/emergency_stop"/>
+            <remap from="~performance_metrics" to="enhanced_navigation_node/performance"/>
+        </node>
+        
+        <!-- Optional: Risk Assessment Visualizer -->
+        <node name="risk_visualizer" pkg="visualization_tools" type="risk_visualizer_node.py" output="screen" if="$(eval arg('config') == 'debug')">
+            <remap from="~risk_assessment" to="enhanced_navigation_node/risk_status"/>
+            <remap from="~object_detections" to="yolo_detector/detections"/>
+            <remap from="~visualization_image" to="enhanced_navigation_node/risk_visualization/compressed"/>
+        </node>
+    </group>
+    
+    <!-- Debug output -->
+    <group if="$(eval arg('config') == 'debug')">
+        <node name="risk_monitor" pkg="rostopic" type="rostopic" 
+              args="echo /$(arg veh)/enhanced_navigation_node/risk_status" output="screen"/>
+        <node name="performance_monitor" pkg="rostopic" type="rostopic" 
+              args="echo /$(arg veh)/enhanced_navigation_node/performance" output="screen"/>
+    </group>
+</launch>

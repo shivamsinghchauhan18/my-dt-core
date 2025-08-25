@@ -1,0 +1,81 @@
+# Enhanced Vehicle Detection Node Configuration
+# YOLO-based object detection with Duckietown-specific classes
+
+# Model Configuration
+model_path: "yolov5s.pt"  # Path to YOLO model file
+confidence_threshold: 0.6  # Minimum confidence for detections (0.0-1.0)
+nms_threshold: 0.45       # Non-maximum suppression threshold (0.0-1.0)
+max_detections: 100       # Maximum number of detections per frame
+
+# Device Configuration
+device: "auto"            # Device to run inference on ('cpu', 'cuda', 'auto')
+tensorrt_enabled: true    # Enable TensorRT optimization (CUDA only)
+
+# Processing Configuration
+process_frequency: 10.0   # Frequency at which to process images (Hz)
+
+# Performance Monitoring
+enable_performance_logging: true    # Enable detailed performance logging
+performance_log_interval: 5.0      # Performance logging interval (seconds)
+
+# Debug Configuration
+enable_debug_image: true           # Enable debug image publication
+debug_image_quality: 80           # JPEG quality for debug images (1-100)
+
+# Duckietown Object Classes Configuration
+# Class IDs and names for custom Duckietown objects
+object_classes:
+  0: "duckie"
+  1: "duckiebot"
+  2: "traffic_cone"
+  3: "stop_sign"
+  4: "intersection_sign"
+  5: "pedestrian"
+  6: "vehicle"
+  7: "barrier"
+
+# Risk Assessment Configuration
+risk_assessment:
+  # Distance-based risk thresholds (meters)
+  critical_distance: 0.5
+  high_distance: 1.0
+  medium_distance: 2.0
+  
+  # Object type risk multipliers
+  high_risk_objects: ["duckiebot", "vehicle", "pedestrian", "barrier"]
+  medium_risk_objects: ["traffic_cone", "stop_sign"]
+  low_risk_objects: ["duckie", "intersection_sign"]
+  
+  # Confidence-based risk adjustment
+  min_confidence_for_risk: 0.3
+
+# Distance Estimation Configuration
+distance_estimation:
+  # Typical object sizes in meters (for distance estimation)
+  object_sizes:
+    duckie: 0.1
+    duckiebot: 0.3
+    traffic_cone: 0.2
+    stop_sign: 0.15
+    intersection_sign: 0.15
+    pedestrian: 1.7
+    vehicle: 2.0
+    barrier: 1.0
+  
+  # Distance estimation parameters
+  min_distance: 0.1      # Minimum estimated distance (meters)
+  max_distance: 10.0     # Maximum estimated distance (meters)
+  default_distance: 5.0  # Default distance for unknown objects
+
+# Performance Requirements
+performance_requirements:
+  max_latency_ms: 200    # Maximum end-to-end latency (milliseconds)
+  min_fps: 20           # Minimum processing FPS
+  max_memory_mb: 2048   # Maximum memory usage (MB)
+  
+# Logging Configuration
+logging:
+  level: "INFO"         # Logging level (DEBUG, INFO, WARN, ERROR)
+  enable_frame_logging: true    # Log per-frame detection results
+  enable_performance_logging: true  # Log performance metrics
+  log_detection_details: false     # Log detailed detection information (DEBUG level)

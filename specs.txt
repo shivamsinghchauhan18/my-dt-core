@@ -1,0 +1,3244 @@
+# Kiro Advanced Duckietown Enhancement Specification
+
+## Project Overview
+
+**Project Name**: Advanced Autonomous Duckietown System  
+**Target Platform**: Duckietown dt-core enhancement  
+**Development Environment**: macOS (development) → Ubuntu/Linux (deployment)  
+**Framework**: ROS Noetic, Python 3.8+, OpenCV 4.x, PyTorch  
+
+## Core Functionalities
+
+### 1. Advanced Lane Following
+### 2. AprilTag Detection & Stop Control
+### 3. YOLOv5-based Object Detection & Avoidance
+### 4. Dynamic Lane Changing
+### 5. Robust Safety & Testing Framework
+
+---
+
+## Technical Architecture
+
+### System Requirements
+
+#### Hardware Requirements
+- **Development**: macOS with Docker support
+- **Deployment**: Ubuntu 20.04 LTS / Linux ARM64 (Raspberry Pi 4+)
+- **Camera**: USB/CSI camera with 640x480 minimum resolution
+- **Compute**: Minimum 4GB RAM, ARM Cortex-A72 or equivalent
+- **Storage**: 32GB+ for models and logs
+
+#### Software Dependencies
+```yaml
+base_image: duckietown/dt-ros-commons:daffy
+python_version: "3.8+"
+ros_version: noetic
+opencv_version: "4.5+"
+pytorch_version: "1.12+"
+torchvision_version: "0.13+"
+```
+
+---
+
+## Module Specifications
+
+### Module 1: Enhanced Lane Following System
+
+#### 1.1 Advanced Line Detection
+**Package**: `packages/advanced_lane_detection/`
+
+**Key Features**:
+- Multi-scale line detection with adaptive thresholding
+- Temporal consistency filtering
+- Robust curve fitting with polynomial regression
+- Dynamic ROI adjustment based on vehicle speed
+
+**Implementation Structure**:
+```
+packages/advanced_lane_detection/
+├── src/
+│   ├── advanced_line_detector_node.py
+│   ├── adaptive_threshold_detector.py
+│   ├── temporal_filter.py
+│   └── curve_fitting_engine.py
+├── config/
+│   ├── advanced_detector_params.yaml
+│   └── roi_adaptive_config.yaml
+├── launch/
+│   └── advanced_lane_detection.launch
+└── tests/
+    ├── test_adaptive_detection.py
+    └── test_temporal_consistency.py
+```
+
+**Core Algorithm**:
+```python
+class AdvancedLineDetector:
+    def __init__(self):
+        self.adaptive_threshold = AdaptiveThresholdDetector()
+        self.temporal_filter = TemporalConsistencyFilter()
+        self.curve_fitter = PolynomialCurveFitter()
+        
+    def detect_lanes(self, image, vehicle_state):
+        # Multi-scale detection
+        roi = self.compute_adaptive_roi(vehicle_state.speed)
+        candidates = self.adaptive_threshold.detect(image, roi)
+        
+        # Temporal filtering
+        filtered_lines = self.temporal_filter.filter(candidates)
+        
+        # Curve fitting
+        lane_curves = self.curve_fitter.fit(filtered_lines)
+        
+        return lane_curves
+```
+
+#### 1.2 Predictive Lane Controller
+**Package**: `packages/predictive_lane_control/`
+
+**Features**:
+- Model Predictive Control (MPC) for smooth trajectory following
+- Lookahead distance adaptation based on speed
+- Lateral and longitudinal control decoupling
+- Emergency braking integration
+
+**Control Architecture**:
+```python
+class PredictiveLaneController:
+    def __init__(self):
+        self.mpc_solver = MPCSolver(horizon=10)
+        self.safety_monitor = SafetyMonitor()
+        
+    def compute_control(self, lane_pose, vehicle_state, obstacles):
+        # Safety check first
+        if self.safety_monitor.emergency_stop_required(obstacles):
+            return self.emergency_stop()
+            
+        # MPC optimization
+        optimal_trajectory = self.mpc_solver.solve(
+            current_state=vehicle_state,
+            reference_path=lane_pose.centerline,
+            constraints=self.get_constraints(obstacles)
+        )
+        
+        return optimal_trajectory.control_commands[0]
+```
+
+### Module 2: AprilTag Detection & Stop Control
+
+#### 2.1 Enhanced AprilTag Detector
+**Package**: `packages/enhanced_apriltag/`
+
+**Features**:
+- Multi-resolution detection for robustness
+- Distance estimation using tag size
+- Orientation-aware detection
+- False positive filtering
+
+**Implementation**:
+```python
+class EnhancedAprilTagDetector:
+    def __init__(self):
+        self.detector = apriltag.Detector()
+        self.distance_estimator = TagDistanceEstimator()
+        self.false_positive_filter = FalsePositiveFilter()
+        
+    def detect_and_estimate(self, image):
+        # Multi-resolution detection
+        detections = []
+        for scale in [1.0, 0.8, 1.2]:
+            scaled_img = cv2.resize(image, None, fx=scale, fy=scale)
+            tags = self.detector.detect(scaled_img)
+            detections.extend(self.scale_detections(tags, 1/scale))
+        
+        # Filter and estimate distances
+        filtered_tags = self.false_positive_filter.filter(detections)
+        
+        for tag in filtered_tags:
+            tag.distance = self.distance_estimator.estimate(tag)
+            tag.approach_angle = self.compute_approach_angle(tag)
+            
+        return filtered_tags
+```
+
+#### 2.2 Precision Stop Controller
+**Package**: `packages/precision_stop_control/`
+
+**Features**:
+- Smooth deceleration profile
+- Precise stopping distance control
+- 2-second timer with visual feedback
+- Resume control after stop
+
+```python
+class PrecisionStopController:
+    def __init__(self):
+        self.deceleration_planner = DecelerationPlanner()
+        self.stop_timer = StopTimer(duration=2.0)
+        self.led_controller = LEDController()
+        
+    def execute_stop_sequence(self, tag_distance, current_speed):
+        # Plan smooth deceleration
+        decel_profile = self.deceleration_planner.plan(
+            distance=tag_distance,
+            initial_speed=current_speed,
+            target_speed=0.0
+        )
+        
+        # Execute deceleration
+        for waypoint in decel_profile:
+            yield waypoint.control_command
+            
+        # Execute 2-second stop
+        self.led_controller.set_pattern("STOPPED_AT_TAG")
+        yield from self.stop_timer.wait()
+        
+        # Resume
+        self.led_controller.set_pattern("RESUMING")
+        yield self.generate_resume_command()
+```
+
+### Module 3: YOLOv5 Object Detection & Avoidance
+
+#### 3.1 Optimized YOLOv5 Detector
+**Package**: `packages/yolo_object_detection/`
+
+**Features**:
+- Lightweight YOLOv5s model optimized for embedded systems
+- Custom training on Duckietown objects (duckies, vehicles, obstacles)
+- Real-time inference with TensorRT optimization
+- Confidence-based filtering
+
+**Model Specifications**:
+```yaml
+model_config:
+  architecture: "yolov5s"
+  input_size: [416, 416]
+  classes: ["duckie", "duckiebot", "cone", "barrier", "pedestrian"]
+  confidence_threshold: 0.6
+  nms_threshold: 0.4
+  max_detections: 10
+```
+
+**Implementation**:
+```python
+class OptimizedYOLODetector:
+    def __init__(self, model_path, device="cpu"):
+        self.model = self.load_optimized_model(model_path, device)
+        self.preprocessor = ImagePreprocessor()
+        self.postprocessor = DetectionPostprocessor()
+        
+    def detect_objects(self, image):
+        # Preprocess
+        input_tensor = self.preprocessor.prepare(image)
+        
+        # Inference
+        with torch.no_grad():
+            predictions = self.model(input_tensor)
+        
+        # Postprocess
+        detections = self.postprocessor.process(
+            predictions, 
+            original_shape=image.shape
+        )
+        
+        return self.filter_relevant_objects(detections)
+```
+
+#### 3.2 Intelligent Avoidance System
+**Package**: `packages/intelligent_avoidance/`
+
+**Features**:
+- Risk assessment for each detected object
+- Multiple avoidance strategies (stop, slow, swerve)
+- Collision prediction with trajectory planning
+- Recovery behavior after avoidance
+
+```python
+class IntelligentAvoidanceSystem:
+    def __init__(self):
+        self.risk_assessor = RiskAssessment()
+        self.trajectory_planner = TrajectoryPlanner()
+        self.collision_predictor = CollisionPredictor()
+        
+    def plan_avoidance(self, detections, vehicle_state, lane_info):
+        # Assess risk for each object
+        risk_objects = []
+        for obj in detections:
+            risk = self.risk_assessor.assess(obj, vehicle_state)
+            if risk.level > RiskLevel.LOW:
+                risk_objects.append((obj, risk))
+        
+        if not risk_objects:
+            return None  # No avoidance needed
+            
+        # Select avoidance strategy
+        strategy = self.select_strategy(risk_objects, lane_info)
+        
+        # Plan trajectory
+        avoidance_trajectory = self.trajectory_planner.plan(
+            strategy=strategy,
+            obstacles=risk_objects,
+            lane_constraints=lane_info
+        )
+        
+        return avoidance_trajectory
+```
+
+### Module 4: Dynamic Lane Changing System
+
+#### 4.1 Lane Change Decision Engine
+**Package**: `packages/dynamic_lane_change/`
+
+**Features**:
+- Multi-criteria decision making for lane changes
+- Gap analysis in adjacent lanes
+- Safety margin calculations
+- Intention signaling with LEDs
+
+```python
+class LaneChangeDecisionEngine:
+    def __init__(self):
+        self.gap_analyzer = GapAnalyzer()
+        self.safety_calculator = SafetyMarginCalculator()
+        self.intention_signaler = IntentionSignaler()
+        
+    def evaluate_lane_change(self, current_lane, adjacent_lanes, obstacles):
+        # Check if lane change is necessary
+        if not self.is_lane_change_beneficial(obstacles):
+            return LaneChangeDecision.STAY
+            
+        # Analyze gaps in adjacent lanes
+        for lane in adjacent_lanes:
+            gap_analysis = self.gap_analyzer.analyze(lane, obstacles)
+            safety_margin = self.safety_calculator.calculate(gap_analysis)
+            
+            if safety_margin.is_sufficient():
+                # Signal intention
+                self.intention_signaler.signal_lane_change(lane.direction)
+                return LaneChangeDecision(action=CHANGE, target_lane=lane)
+                
+        return LaneChangeDecision.WAIT
+```
+
+#### 4.2 Smooth Lane Change Executor
+```python
+class SmoothLaneChangeExecutor:
+    def __init__(self):
+        self.path_planner = SmoothPathPlanner()
+        self.progress_monitor = ProgressMonitor()
+        
+    def execute_lane_change(self, decision, current_state):
+        # Generate smooth trajectory
+        trajectory = self.path_planner.generate_lane_change_path(
+            start_pose=current_state.pose,
+            target_lane=decision.target_lane,
+            duration=3.0  # 3-second lane change
+        )
+        
+        # Execute with monitoring
+        for waypoint in trajectory:
+            # Check for abort conditions
+            if self.should_abort_lane_change():
+                return self.execute_abort_maneuver()
+                
+            yield waypoint.control_command
+            
+        return LaneChangeResult.SUCCESS
+```
+
+### Module 5: Safety & Testing Framework
+
+#### 5.1 Comprehensive Safety Monitor
+**Package**: `packages/safety_monitor/`
+
+**Features**:
+- Multi-layered safety checks
+- Emergency stop capabilities
+- Fault detection and recovery
+- Safety state logging
+
+```python
+class ComprehensiveSafetyMonitor:
+    def __init__(self):
+        self.collision_detector = CollisionDetector()
+        self.system_health_monitor = SystemHealthMonitor()
+        self.emergency_controller = EmergencyController()
+        
+    def monitor_safety(self, system_state):
+        safety_status = SafetyStatus()
+        
+        # Check for imminent collisions
+        collision_risk = self.collision_detector.assess(system_state)
+        if collision_risk.level >= RiskLevel.CRITICAL:
+            safety_status.emergency_stop_required = True
+            
+        # Monitor system health
+        health_status = self.system_health_monitor.check_all_systems()
+        if health_status.has_critical_failures():
+            safety_status.system_fault = True
+            
+        # Execute emergency procedures if needed
+        if safety_status.requires_emergency_action():
+            self.emergency_controller.execute_emergency_stop()
+            
+        return safety_status
+```
+
+#### 5.2 Automated Testing Suite
+**Package**: `packages/automated_testing/`
+
+**Features**:
+- Simulation-based testing
+- Hardware-in-the-loop testing
+- Performance benchmarking
+- Regression testing
+
+```python
+class AutomatedTestSuite:
+    def __init__(self):
+        self.simulator = DuckietownSimulator()
+        self.benchmark_runner = BenchmarkRunner()
+        self.regression_tester = RegressionTester()
+        
+    def run_comprehensive_tests(self):
+        results = TestResults()
+        
+        # Simulation tests
+        sim_results = self.run_simulation_tests()
+        results.add_simulation_results(sim_results)
+        
+        # Performance benchmarks
+        perf_results = self.benchmark_runner.run_all_benchmarks()
+        results.add_performance_results(perf_results)
+        
+        # Regression tests
+        regression_results = self.regression_tester.run_regression_suite()
+        results.add_regression_results(regression_results)
+        
+        return results
+```
+
+---
+
+## Integration Architecture
+
+### System Integration Flow
+```
+Camera Input → Image Processing Pipeline → Multi-Modal Detection
+     ↓
+[Lane Detection] + [AprilTag Detection] + [Object Detection]
+     ↓
+Decision Fusion Engine
+     ↓
+[Lane Following] + [Stop Control] + [Avoidance] + [Lane Change]
+     ↓
+Safety Monitor → Control Command Arbitration → Vehicle Control
+```
+
+### ROS Node Architecture
+```yaml
+nodes:
+  advanced_lane_detector:
+    type: "advanced_lane_detection/advanced_line_detector_node.py"
+    topics:
+      subscribe: ["/camera/image_raw"]
+      publish: ["/lane_detection/segments", "/lane_detection/curves"]
+      
+  enhanced_apriltag_detector:
+    type: "enhanced_apriltag/apriltag_detector_node.py"
+    topics:
+      subscribe: ["/camera/image_raw"]
+      publish: ["/apriltag/detections", "/apriltag/stop_commands"]
+      
+  yolo_object_detector:
+    type: "yolo_object_detection/yolo_detector_node.py"
+    topics:
+      subscribe: ["/camera/image_raw"]
+      publish: ["/objects/detections", "/objects/risks"]
+      
+  intelligent_coordinator:
+    type: "intelligent_coordination/coordinator_node.py"
+    topics:
+      subscribe: ["/lane_detection/curves", "/apriltag/detections", "/objects/detections"]
+      publish: ["/control/commands", "/safety/status"]
+```
+
+---
+
+## Development & Deployment Strategy
+
+### Phase 1: Core Enhancement (Weeks 1-3)
+1. **Week 1**: Advanced lane detection implementation
+2. **Week 2**: Enhanced AprilTag detection and stop control
+3. **Week 3**: Integration and basic testing
+
+### Phase 2: Object Detection & Avoidance (Weeks 4-6)
+1. **Week 4**: YOLOv5 integration and optimization
+2. **Week 5**: Avoidance system implementation
+3. **Week 6**: Safety framework development
+
+### Phase 3: Advanced Features (Weeks 7-9)
+1. **Week 7**: Dynamic lane changing system
+2. **Week 8**: Comprehensive testing suite
+3. **Week 9**: Performance optimization and deployment
+
+### Cross-Platform Development Workflow
+```bash
+# Development on macOS
+docker build -t duckietown/advanced-dt-core:dev-macos .
+docker run -it --rm -v $(pwd):/workspace duckietown/advanced-dt-core:dev-macos
+
+# Testing on Ubuntu/Linux
+docker build -t duckietown/advanced-dt-core:test-linux --target linux-test .
+docker run --privileged -v /dev:/dev duckietown/advanced-dt-core:test-linux
+
+# Deployment on robot
+docker build -t duckietown/advanced-dt-core:prod-arm64 --platform linux/arm64 .
+```
+
+---
+
+## Quality Assurance & Testing
+
+### Testing Strategy
+1. **Unit Tests**: Individual component testing
+2. **Integration Tests**: Cross-component functionality
+3. **Simulation Tests**: Gazebo-based scenario testing
+4. **Hardware Tests**: Real robot validation
+5. **Performance Tests**: Latency and throughput benchmarks
+
+### Safety Validation
+1. **Fault Injection Testing**: System resilience validation
+2. **Edge Case Testing**: Boundary condition handling
+3. **Stress Testing**: System limits identification
+4. **Recovery Testing**: Failure recovery validation
+
+### Performance Metrics
+- **Lane Following Accuracy**: < 5cm lateral deviation
+- **Object Detection Latency**: < 100ms end-to-end
+- **Stop Precision**: ± 10cm from AprilTag
+- **System Throughput**: 30 FPS minimum
+- **Memory Usage**: < 2GB peak consumption
+
+---
+
+## Risk Mitigation & Limitations
+
+### Technical Risks
+1. **Computational Constraints**: YOLOv5 optimization for embedded systems
+2. **Real-time Performance**: Maintaining 30 FPS with multiple detection systems
+3. **Integration Complexity**: Managing multiple concurrent detection pipelines
+
+### Mitigation Strategies
+1. **Model Optimization**: TensorRT, quantization, pruning
+2. **Parallel Processing**: Multi-threading for detection pipelines
+3. **Graceful Degradation**: Fallback modes for system overload
+
+### System Limitations
+1. **Weather Conditions**: Performance degradation in rain/fog
+2. **Lighting Variations**: Reduced accuracy in extreme lighting
+3. **Hardware Constraints**: Limited by Raspberry Pi computational power
+
+---
+
+## Deployment Configuration
+
+### Docker Configuration
+```dockerfile
+FROM duckietown/dt-ros-commons:daffy
+
+# Install PyTorch and YOLOv5 dependencies
+RUN pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+RUN pip3 install ultralytics opencv-python-headless
+
+# Copy enhanced packages
+COPY packages/ ${CATKIN_WS_DIR}/src/dt-core/packages/
+
+# Build enhanced system
+RUN . /opt/ros/noetic/setup.sh && catkin build --workspace ${CATKIN_WS_DIR}/
+
+# Set up model downloads
+RUN mkdir -p /models && \
+    wget -O /models/yolov5s.pt https://github.com/ultralytics/yolov5/releases/download/v6.0/yolov5s.pt
+
+ENV YOLO_MODEL_PATH="/models/yolov5s.pt"
+```
+
+### Launch Configuration
+```xml
+<launch>
+    <arg name="veh" default="$(env VEHICLE_NAME)"/>
+    
+    <!-- Enhanced Lane Following -->
+    <include file="$(find advanced_lane_detection)/launch/advanced_lane_detection.launch">
+        <arg name="veh" value="$(arg veh)"/>
+    </include>
+    
+    <!-- Enhanced AprilTag Detection -->
+    <include file="$(find enhanced_apriltag)/launch/enhanced_apriltag.launch">
+        <arg name="veh" value="$(arg veh)"/>
+    </include>
+    
+    <!-- YOLOv5 Object Detection -->
+    <include file="$(find yolo_object_detection)/launch/yolo_detection.launch">
+        <arg name="veh" value="$(arg veh)"/>
+        <arg name="model_path" value="$(env YOLO_MODEL_PATH)"/>
+    </include>
+    
+    <!-- Intelligent Coordination -->
+    <include file="$(find intelligent_coordination)/launch/coordinator.launch">
+        <arg name="veh" value="$(arg veh)"/>
+    </include>
+    
+    <!-- Safety Monitor -->
+    <include file="$(find safety_monitor)/launch/safety_monitor.launch">
+        <arg name="veh" value="$(arg veh)"/>
+    </include>
+</launch>
+```
+
+This specification provides a comprehensive roadmap for enhancing the Duckietown dt-core system with advanced autonomous capabilities while maintaining modularity, safety, and cross-platform compatibility.
+
+# Implementation Roadmap & Technical Details
+
+## Detailed Implementation Plan
+
+### Phase 1: Foundation Enhancement (Weeks 1-3)
+
+#### Week 1: Advanced Lane Detection System
+
+**Day 1-2: Core Algorithm Development**
+```python
+# packages/advanced_lane_detection/src/adaptive_threshold_detector.py
+class AdaptiveThresholdDetector:
+    def __init__(self):
+        self.gaussian_kernel_size = 5
+        self.adaptive_block_size = 11
+        self.adaptive_c = 2
+        self.morphology_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+    
+    def detect(self, image, roi):
+        # Convert to grayscale
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        
+        # Apply ROI mask
+        masked = cv2.bitwise_and(gray, roi)
+        
+        # Gaussian blur for noise reduction
+        blurred = cv2.GaussianBlur(masked, (self.gaussian_kernel_size, self.gaussian_kernel_size), 0)
+        
+        # Adaptive thresholding
+        adaptive_thresh = cv2.adaptiveThreshold(
+            blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+            cv2.THRESH_BINARY, self.adaptive_block_size, self.adaptive_c
+        )
+        
+        # Morphological operations
+        cleaned = cv2.morphologyEx(adaptive_thresh, cv2.MORPH_CLOSE, self.morphology_kernel)
+        
+        # Hough line detection
+        lines = cv2.HoughLinesP(
+            cleaned, rho=1, theta=np.pi/180, threshold=50,
+            minLineLength=30, maxLineGap=10
+        )
+        
+        return self.filter_lane_lines(lines)
+```
+
+**Day 3-4: Temporal Consistency Filter**
+```python
+# packages/advanced_lane_detection/src/temporal_filter.py
+class TemporalConsistencyFilter:
+    def __init__(self, history_size=5, consistency_threshold=0.8):
+        self.history = deque(maxlen=history_size)
+        self.consistency_threshold = consistency_threshold
+        
+    def filter(self, current_detections):
+        if len(self.history) < 2:
+            self.history.append(current_detections)
+            return current_detections
+            
+        # Calculate consistency scores
+        consistent_lines = []
+        for line in current_detections:
+            consistency_score = self.calculate_consistency(line)
+            if consistency_score > self.consistency_threshold:
+                consistent_lines.append(line)
+                
+        self.history.append(current_detections)
+        return consistent_lines
+    
+    def calculate_consistency(self, line):
+        # Compare with historical detections
+        scores = []
+        for historical_frame in self.history:
+            best_match_score = max([
+                self.line_similarity(line, hist_line) 
+                for hist_line in historical_frame
+            ], default=0)
+            scores.append(best_match_score)
+        
+        return np.mean(scores)
+```
+
+**Day 5-7: Integration and Testing**
+
+#### Week 2: Enhanced AprilTag System
+
+**Day 1-3: Multi-Resolution Detection**
+```python
+# packages/enhanced_apriltag/src/multi_resolution_detector.py
+class MultiResolutionAprilTagDetector:
+    def __init__(self):
+        self.detector = apriltag.Detector(apriltag.DetectorOptions(families="tag36h11"))
+        self.scales = [0.8, 1.0, 1.2, 1.5]
+        self.min_confidence = 0.7
+        
+    def detect_multi_scale(self, image):
+        all_detections = []
+        
+        for scale in self.scales:
+            if scale != 1.0:
+                h, w = image.shape[:2]
+                scaled_img = cv2.resize(image, (int(w * scale), int(h * scale)))
+            else:
+                scaled_img = image
+                
+            # Convert to grayscale for AprilTag detection
+            gray = cv2.cvtColor(scaled_img, cv2.COLOR_BGR2GRAY)
+            
+            # Detect tags
+            detections = self.detector.detect(gray)
+            
+            # Scale back coordinates and filter by confidence
+            for detection in detections:
+                if detection.decision_margin > self.min_confidence:
+                    # Scale coordinates back to original image size
+                    scaled_detection = self.scale_detection(detection, 1/scale)
+                    all_detections.append(scaled_detection)
+        
+        # Remove duplicates and return best detections
+        return self.remove_duplicate_detections(all_detections)
+```
+
+**Day 4-5: Precision Stop Controller**
+```python
+# packages/enhanced_apriltag/src/precision_stop_controller.py
+class PrecisionStopController:
+    def __init__(self):
+        self.target_stop_distance = 0.3  # 30cm from tag
+        self.deceleration_distance = 1.0  # Start decelerating 1m away
+        self.max_deceleration = 2.0  # m/s²
+        self.stop_timer = 2.0  # seconds
+        
+    def plan_stop_trajectory(self, tag_distance, current_velocity):
+        if tag_distance > self.deceleration_distance:
+            return None  # Too far, maintain current behavior
+            
+        # Calculate required deceleration
+        stop_distance = tag_distance - self.target_stop_distance
+        required_decel = (current_velocity ** 2) / (2 * stop_distance)
+        
+        if required_decel > self.max_deceleration:
+            # Emergency stop required
+            return self.emergency_stop_trajectory()
+        
+        # Generate smooth deceleration profile
+        trajectory_points = []
+        dt = 0.1  # 100ms intervals
+        
+        for t in np.arange(0, stop_distance / current_velocity, dt):
+            remaining_distance = stop_distance - (current_velocity * t - 0.5 * required_decel * t**2)
+            velocity = current_velocity - required_decel * t
+            
+            if velocity <= 0:
+                velocity = 0
+                
+            trajectory_points.append({
+                'time': t,
+                'velocity': velocity,
+                'distance_to_stop': remaining_distance
+            })
+            
+        return trajectory_points
+```
+
+#### Week 3: System Integration
+
+**Integration Architecture**:
+```python
+# packages/intelligent_coordination/src/coordinator_node.py
+class IntelligentCoordinatorNode(DTROS):
+    def __init__(self):
+        super().__init__('intelligent_coordinator')
+        
+        # Subscribers
+        self.sub_lane_curves = rospy.Subscriber(
+            '~lane_curves', LaneCurves, self.cb_lane_curves, queue_size=1
+        )
+        self.sub_apriltag_detections = rospy.Subscriber(
+            '~apriltag_detections', AprilTagDetectionArray, self.cb_apriltag, queue_size=1
+        )
+        self.sub_object_detections = rospy.Subscriber(
+            '~object_detections', ObjectDetectionArray, self.cb_objects, queue_size=1
+        )
+        
+        # Publishers
+        self.pub_control_cmd = rospy.Publisher(
+            '~control_command', Twist2DStamped, queue_size=1
+        )
+        self.pub_safety_status = rospy.Publisher(
+            '~safety_status', SafetyStatus, queue_size=1
+        )
+        
+        # State management
+        self.current_state = CoordinatorState.LANE_FOLLOWING
+        self.lane_info = None
+        self.apriltag_info = None
+        self.object_info = None
+        
+    def coordinate_behaviors(self):
+        # Priority-based behavior coordination
+        if self.apriltag_info and self.apriltag_info.requires_stop:
+            return self.execute_apriltag_stop()
+        elif self.object_info and self.object_info.requires_avoidance:
+            return self.execute_object_avoidance()
+        elif self.lane_info:
+            return self.execute_lane_following()
+        else:
+            return self.execute_safe_stop()
+```
+
+### Phase 2: Object Detection & Avoidance (Weeks 4-6)
+
+#### Week 4: YOLOv5 Integration
+
+**Model Optimization for Embedded Systems**:
+```python
+# packages/yolo_object_detection/src/optimized_yolo_detector.py
+class OptimizedYOLODetector:
+    def __init__(self, model_path, device='cpu'):
+        self.device = device
+        self.model = self.load_and_optimize_model(model_path)
+        self.input_size = (416, 416)
+        self.confidence_threshold = 0.6
+        self.nms_threshold = 0.4
+        
+    def load_and_optimize_model(self, model_path):
+        # Load YOLOv5 model
+        model = torch.hub.load('ultralytics/yolov5', 'custom', path=model_path)
+        model.eval()
+        
+        # Optimize for inference
+        if self.device == 'cpu':
+            # CPU optimizations
+            model = torch.jit.script(model)
+            model = torch.jit.optimize_for_inference(model)
+        else:
+            # GPU optimizations (if available)
+            model.half()  # FP16 precision
+            
+        return model
+    
+    def detect_objects(self, image):
+        # Preprocess image
+        input_tensor = self.preprocess_image(image)
+        
+        # Run inference
+        with torch.no_grad():
+            start_time = time.time()
+            predictions = self.model(input_tensor)
+            inference_time = time.time() - start_time
+            
+        # Post-process results
+        detections = self.postprocess_predictions(predictions, image.shape)
+        
+        # Log performance metrics
+        self.log_performance(inference_time, len(detections))
+        
+        return detections
+    
+    def preprocess_image(self, image):
+        # Resize to model input size
+        resized = cv2.resize(image, self.input_size)
+        
+        # Normalize pixel values
+        normalized = resized.astype(np.float32) / 255.0
+        
+        # Convert to tensor and add batch dimension
+        tensor = torch.from_numpy(normalized).permute(2, 0, 1).unsqueeze(0)
+        
+        return tensor.to(self.device)
+```
+
+**Custom Duckietown Object Classes**:
+```yaml
+# packages/yolo_object_detection/config/duckietown_classes.yaml
+classes:
+  0: "duckiebot"
+  1: "duckie"
+  2: "traffic_cone"
+  3: "barrier"
+  4: "pedestrian"
+  5: "stop_sign"
+  6: "intersection_sign"
+
+class_priorities:
+  duckiebot: 0.9      # High priority - other robots
+  pedestrian: 0.95    # Highest priority - safety critical
+  traffic_cone: 0.7   # Medium priority - navigation obstacle
+  barrier: 0.8        # High priority - hard obstacle
+  duckie: 0.3         # Low priority - soft obstacle
+  stop_sign: 0.85     # High priority - traffic rule
+  intersection_sign: 0.6  # Medium priority - navigation aid
+```
+
+#### Week 5: Intelligent Avoidance System
+
+**Risk Assessment Engine**:
+```python
+# packages/intelligent_avoidance/src/risk_assessment.py
+class RiskAssessmentEngine:
+    def __init__(self):
+        self.collision_predictor = CollisionPredictor()
+        self.risk_weights = {
+            'distance': 0.4,
+            'relative_velocity': 0.3,
+            'object_type': 0.2,
+            'trajectory_intersection': 0.1
+        }
+        
+    def assess_risk(self, detection, vehicle_state):
+        risk_factors = {}
+        
+        # Distance-based risk (closer = higher risk)
+        distance = self.calculate_distance(detection, vehicle_state)
+        risk_factors['distance'] = max(0, 1 - (distance / 5.0))  # 5m max distance
+        
+        # Relative velocity risk
+        rel_velocity = self.calculate_relative_velocity(detection, vehicle_state)
+        risk_factors['relative_velocity'] = min(1, abs(rel_velocity) / 2.0)  # 2 m/s max
+        
+        # Object type risk (from config)
+        object_class = detection.class_name
+        risk_factors['object_type'] = self.get_class_risk(object_class)
+        
+        # Trajectory intersection risk
+        intersection_prob = self.collision_predictor.predict_intersection(
+            detection, vehicle_state
+        )
+        risk_factors['trajectory_intersection'] = intersection_prob
+        
+        # Calculate weighted risk score
+        total_risk = sum(
+            risk_factors[factor] * self.risk_weights[factor]
+            for factor in risk_factors
+        )
+        
+        return RiskAssessment(
+            level=self.categorize_risk(total_risk),
+            score=total_risk,
+            factors=risk_factors,
+            recommended_action=self.recommend_action(total_risk)
+        )
+```
+
+**Multi-Strategy Avoidance Planner**:
+```python
+# packages/intelligent_avoidance/src/avoidance_planner.py
+class AvoidancePlanner:
+    def __init__(self):
+        self.strategies = {
+            'STOP': StopStrategy(),
+            'SLOW_DOWN': SlowDownStrategy(),
+            'SWERVE_LEFT': SwerveStrategy(direction='left'),
+            'SWERVE_RIGHT': SwerveStrategy(direction='right'),
+            'REVERSE': ReverseStrategy()
+        }
+        
+    def plan_avoidance(self, risk_objects, lane_info, vehicle_state):
+        # Evaluate all possible strategies
+        strategy_scores = {}
+        
+        for strategy_name, strategy in self.strategies.items():
+            if strategy.is_applicable(lane_info, vehicle_state):
+                score = strategy.evaluate(risk_objects, lane_info, vehicle_state)
+                strategy_scores[strategy_name] = score
+                
+        # Select best strategy
+        if not strategy_scores:
+            return self.emergency_stop()
+            
+        best_strategy = max(strategy_scores.items(), key=lambda x: x[1])
+        selected_strategy = self.strategies[best_strategy[0]]
+        
+        # Generate trajectory
+        trajectory = selected_strategy.generate_trajectory(
+            risk_objects, lane_info, vehicle_state
+        )
+        
+        return AvoidancePlan(
+            strategy=best_strategy[0],
+            trajectory=trajectory,
+            confidence=best_strategy[1],
+            execution_time=selected_strategy.estimated_duration
+        )
+```
+
+#### Week 6: Safety Framework Development
+
+**Comprehensive Safety Monitor**:
+```python
+# packages/safety_monitor/src/safety_monitor.py
+class ComprehensiveSafetyMonitor:
+    def __init__(self):
+        self.collision_detector = CollisionDetector()
+        self.system_health_monitor = SystemHealthMonitor()
+        self.emergency_controller = EmergencyController()
+        self.safety_logger = SafetyLogger()
+        
+        # Safety thresholds
+        self.min_safe_distance = 0.5  # meters
+        self.max_lateral_acceleration = 3.0  # m/s²
+        self.max_longitudinal_deceleration = 4.0  # m/s²
+        self.system_timeout_threshold = 1.0  # seconds
+        
+    def monitor_safety(self, system_state):
+        safety_status = SafetyStatus()
+        current_time = rospy.Time.now()
+        
+        # 1. Collision Risk Assessment
+        collision_risk = self.assess_collision_risk(system_state)
+        safety_status.collision_risk = collision_risk
+        
+        # 2. System Health Check
+        health_status = self.check_system_health(system_state, current_time)
+        safety_status.system_health = health_status
+        
+        # 3. Vehicle Dynamics Safety
+        dynamics_safety = self.check_vehicle_dynamics(system_state)
+        safety_status.dynamics_safety = dynamics_safety
+        
+        # 4. Determine overall safety level
+        overall_safety = self.determine_overall_safety(
+            collision_risk, health_status, dynamics_safety
+        )
+        safety_status.overall_level = overall_safety
+        
+        # 5. Execute safety actions if needed
+        if overall_safety == SafetyLevel.CRITICAL:
+            self.execute_emergency_procedures(system_state)
+            
+        # 6. Log safety events
+        self.safety_logger.log_safety_status(safety_status)
+        
+        return safety_status
+    
+    def execute_emergency_procedures(self, system_state):
+        # Immediate actions
+        self.emergency_controller.emergency_stop()
+        
+        # LED warning signals
+        self.emergency_controller.activate_warning_lights()
+        
+        # Log emergency event
+        self.safety_logger.log_emergency_event(system_state)
+        
+        # Notify fleet management (if available)
+        self.emergency_controller.notify_fleet_management()
+```
+
+### Phase 3: Advanced Features (Weeks 7-9)
+
+#### Week 7: Dynamic Lane Changing
+
+**Lane Change Decision Matrix**:
+```python
+# packages/dynamic_lane_change/src/decision_engine.py
+class LaneChangeDecisionEngine:
+    def __init__(self):
+        self.decision_matrix = {
+            'obstacle_ahead': {
+                'weight': 0.4,
+                'threshold': 0.7
+            },
+            'gap_availability': {
+                'weight': 0.3,
+                'threshold': 0.6
+            },
+            'safety_margin': {
+                'weight': 0.2,
+                'threshold': 0.8
+            },
+            'traffic_flow': {
+                'weight': 0.1,
+                'threshold': 0.5
+            }
+        }
+        
+    def evaluate_lane_change_necessity(self, current_lane_state):
+        necessity_score = 0
+        
+        # Check for obstacles in current lane
+        if current_lane_state.has_obstacles:
+            obstacle_severity = self.assess_obstacle_severity(
+                current_lane_state.obstacles
+            )
+            necessity_score += obstacle_severity * self.decision_matrix['obstacle_ahead']['weight']
+            
+        # Check lane condition
+        lane_quality = self.assess_lane_quality(current_lane_state)
+        if lane_quality < 0.5:  # Poor lane quality
+            necessity_score += (1 - lane_quality) * 0.2
+            
+        return necessity_score
+    
+    def evaluate_lane_change_feasibility(self, target_lane, vehicle_state):
+        feasibility_factors = {}
+        
+        # Gap analysis
+        gap_analysis = self.analyze_gap(target_lane, vehicle_state)
+        feasibility_factors['gap_availability'] = gap_analysis.adequacy_score
+        
+        # Safety margin calculation
+        safety_margin = self.calculate_safety_margin(target_lane, vehicle_state)
+        feasibility_factors['safety_margin'] = safety_margin.score
+        
+        # Traffic flow compatibility
+        traffic_flow = self.assess_traffic_flow(target_lane)
+        feasibility_factors['traffic_flow'] = traffic_flow.compatibility_score
+        
+        # Calculate weighted feasibility score
+        feasibility_score = sum(
+            feasibility_factors[factor] * self.decision_matrix[factor]['weight']
+            for factor in feasibility_factors
+        )
+        
+        return LaneChangeFeasibility(
+            score=feasibility_score,
+            factors=feasibility_factors,
+            is_feasible=feasibility_score > 0.6
+        )
+```
+
+**Smooth Trajectory Generation**:
+```python
+# packages/dynamic_lane_change/src/trajectory_generator.py
+class SmoothTrajectoryGenerator:
+    def __init__(self):
+        self.lane_change_duration = 3.0  # seconds
+        self.max_lateral_acceleration = 2.0  # m/s²
+        self.trajectory_resolution = 0.1  # seconds
+        
+    def generate_lane_change_trajectory(self, start_pose, target_lane, vehicle_velocity):
+        # Calculate trajectory parameters
+        lateral_distance = self.calculate_lateral_distance(start_pose, target_lane)
+        longitudinal_distance = vehicle_velocity * self.lane_change_duration
+        
+        # Generate smooth trajectory using quintic polynomial
+        trajectory_points = []
+        
+        for t in np.arange(0, self.lane_change_duration, self.trajectory_resolution):
+            # Normalized time parameter
+            s = t / self.lane_change_duration
+            
+            # Quintic polynomial for smooth acceleration profile
+            lateral_progress = self.quintic_polynomial(s)
+            
+            # Calculate position
+            longitudinal_pos = start_pose.x + vehicle_velocity * t
+            lateral_pos = start_pose.y + lateral_distance * lateral_progress
+            
+            # Calculate velocity and acceleration
+            lateral_velocity = self.calculate_lateral_velocity(s, lateral_distance)
+            lateral_acceleration = self.calculate_lateral_acceleration(s, lateral_distance)
+            
+            trajectory_point = TrajectoryPoint(
+                time=t,
+                position=Point(longitudinal_pos, lateral_pos),
+                velocity=Vector(vehicle_velocity, lateral_velocity),
+                acceleration=Vector(0, lateral_acceleration)
+            )
+            
+            trajectory_points.append(trajectory_point)
+            
+        return Trajectory(points=trajectory_points, duration=self.lane_change_duration)
+    
+    def quintic_polynomial(self, s):
+        # Smooth S-curve trajectory: 0 acceleration at start and end
+        return 10 * s**3 - 15 * s**4 + 6 * s**5
+```
+
+#### Week 8: Comprehensive Testing Suite
+
+**Automated Test Framework**:
+```python
+# packages/automated_testing/src/test_framework.py
+class ComprehensiveTestFramework:
+    def __init__(self):
+        self.test_scenarios = self.load_test_scenarios()
+        self.performance_metrics = PerformanceMetrics()
+        self.safety_validator = SafetyValidator()
+        
+    def run_full_test_suite(self):
+        results = TestSuiteResults()
+        
+        # 1. Unit Tests
+        unit_test_results = self.run_unit_tests()
+        results.add_unit_test_results(unit_test_results)
+        
+        # 2. Integration Tests
+        integration_results = self.run_integration_tests()
+        results.add_integration_results(integration_results)
+        
+        # 3. Scenario-based Tests
+        scenario_results = self.run_scenario_tests()
+        results.add_scenario_results(scenario_results)
+        
+        # 4. Performance Benchmarks
+        performance_results = self.run_performance_benchmarks()
+        results.add_performance_results(performance_results)
+        
+        # 5. Safety Validation
+        safety_results = self.run_safety_validation()
+        results.add_safety_results(safety_results)
+        
+        return results
+    
+    def run_scenario_tests(self):
+        scenario_results = []
+        
+        for scenario in self.test_scenarios:
+            print(f"Running scenario: {scenario.name}")
+            
+            # Set up scenario environment
+            self.setup_scenario_environment(scenario)
+            
+            # Execute scenario
+            execution_result = self.execute_scenario(scenario)
+            
+            # Validate results
+            validation_result = self.validate_scenario_result(
+                scenario, execution_result
+            )
+            
+            scenario_results.append(ScenarioTestResult(
+                scenario=scenario,
+                execution=execution_result,
+                validation=validation_result,
+                passed=validation_result.all_checks_passed
+            ))
+            
+        return scenario_results
+```
+
+**Performance Benchmarking**:
+```python
+# packages/automated_testing/src/performance_benchmarks.py
+class PerformanceBenchmarks:
+    def __init__(self):
+        self.benchmarks = {
+            'lane_detection_latency': self.benchmark_lane_detection,
+            'object_detection_latency': self.benchmark_object_detection,
+            'control_loop_frequency': self.benchmark_control_loop,
+            'memory_usage': self.benchmark_memory_usage,
+            'cpu_utilization': self.benchmark_cpu_usage
+        }
+        
+    def run_all_benchmarks(self):
+        results = {}
+        
+        for benchmark_name, benchmark_func in self.benchmarks.items():
+            print(f"Running benchmark: {benchmark_name}")
+            
+            try:
+                result = benchmark_func()
+                results[benchmark_name] = result
+                print(f"✓ {benchmark_name}: {result}")
+            except Exception as e:
+                results[benchmark_name] = BenchmarkError(str(e))
+                print(f"✗ {benchmark_name}: FAILED - {e}")
+                
+        return BenchmarkResults(results)
+    
+    def benchmark_lane_detection(self):
+        # Load test images
+        test_images = self.load_test_images('lane_detection')
+        
+        # Initialize detector
+        detector = AdvancedLineDetector()
+        
+        # Measure detection latency
+        latencies = []
+        
+        for image in test_images:
+            start_time = time.time()
+            detections = detector.detect_lanes(image, VehicleState())
+            end_time = time.time()
+            
+            latencies.append(end_time - start_time)
+            
+        return BenchmarkResult(
+            metric='latency',
+            value=np.mean(latencies),
+            unit='seconds',
+            std_dev=np.std(latencies),
+            min_value=np.min(latencies),
+            max_value=np.max(latencies),
+            target_threshold=0.1,  # 100ms target
+            passed=np.mean(latencies) < 0.1
+        )
+```
+
+#### Week 9: Performance Optimization & Deployment
+
+**System Optimization**:
+```python
+# packages/system_optimization/src/performance_optimizer.py
+class SystemPerformanceOptimizer:
+    def __init__(self):
+        self.optimization_strategies = {
+            'cpu_optimization': CPUOptimizer(),
+            'memory_optimization': MemoryOptimizer(),
+            'io_optimization': IOOptimizer(),
+            'algorithm_optimization': AlgorithmOptimizer()
+        }
+        
+    def optimize_system(self, current_performance):
+        optimization_plan = OptimizationPlan()
+        
+        # Analyze performance bottlenecks
+        bottlenecks = self.analyze_bottlenecks(current_performance)
+        
+        # Apply optimization strategies
+        for bottleneck in bottlenecks:
+            if bottleneck.type == 'cpu':
+                optimization = self.optimization_strategies['cpu_optimization'].optimize(bottleneck)
+            elif bottleneck.type == 'memory':
+                optimization = self.optimization_strategies['memory_optimization'].optimize(bottleneck)
+            elif bottleneck.type == 'io':
+                optimization = self.optimization_strategies['io_optimization'].optimize(bottleneck)
+            else:
+                optimization = self.optimization_strategies['algorithm_optimization'].optimize(bottleneck)
+                
+            optimization_plan.add_optimization(optimization)
+            
+        return optimization_plan
+    
+    def apply_optimizations(self, optimization_plan):
+        results = []
+        
+        for optimization in optimization_plan.optimizations:
+            try:
+                result = optimization.apply()
+                results.append(result)
+            except Exception as e:
+                results.append(OptimizationError(str(e)))
+                
+        return OptimizationResults(results)
+```
+
+**Deployment Configuration**:
+```bash
+#!/bin/bash
+# deployment/deploy.sh
+
+set -e
+
+echo "Starting Duckietown Advanced System Deployment..."
+
+# 1. Build optimized Docker image
+echo "Building optimized Docker image..."
+docker build -t duckietown/advanced-dt-core:latest \
+    --build-arg OPTIMIZE_FOR_PRODUCTION=true \
+    --build-arg TARGET_PLATFORM=linux/arm64 \
+    .
+
+# 2. Run system validation
+echo "Running pre-deployment validation..."
+docker run --rm duckietown/advanced-dt-core:latest \
+    python3 -m automated_testing.validate_deployment
+
+# 3. Deploy to robot
+echo "Deploying to robot..."
+docker save duckietown/advanced-dt-core:latest | \
+    ssh duckie@$ROBOT_IP 'docker load'
+
+# 4. Start services
+echo "Starting advanced services..."
+ssh duckie@$ROBOT_IP 'docker-compose -f /data/config/advanced-dt-core.yml up -d'
+
+# 5. Verify deployment
+echo "Verifying deployment..."
+sleep 10
+ssh duckie@$ROBOT_IP 'docker ps | grep advanced-dt-core'
+
+echo "Deployment completed successfully!"
+```
+
+This implementation roadmap provides detailed technical specifications for each phase of development, ensuring a systematic approach to building the advanced Duckietown system with proper testing, optimization, and deployment procedures.
+
+# Testing & Safety Framework Specification
+
+## Comprehensive Testing Strategy
+
+### 1. Multi-Level Testing Architecture
+
+#### Level 1: Unit Testing
+**Scope**: Individual component validation
+**Framework**: pytest + ROS testing tools
+**Coverage Target**: >95% code coverage
+
+```python
+# tests/unit/test_advanced_lane_detection.py
+import pytest
+import numpy as np
+import cv2
+from unittest.mock import Mock, patch
+
+from advanced_lane_detection.adaptive_threshold_detector import AdaptiveThresholdDetector
+from advanced_lane_detection.temporal_filter import TemporalConsistencyFilter
+
+class TestAdaptiveThresholdDetector:
+    def setup_method(self):
+        self.detector = AdaptiveThresholdDetector()
+        self.test_image = self.create_test_lane_image()
+        
+    def create_test_lane_image(self):
+        # Create synthetic lane image for testing
+        image = np.zeros((480, 640, 3), dtype=np.uint8)
+        
+        # Draw white lane lines
+        cv2.line(image, (200, 480), (250, 240), (255, 255, 255), 5)
+        cv2.line(image, (400, 480), (350, 240), (255, 255, 255), 5)
+        
+        # Add yellow center line
+        cv2.line(image, (320, 480), (320, 240), (0, 255, 255), 3)
+        
+        return image
+    
+    def test_detect_basic_lanes(self):
+        """Test basic lane detection functionality"""
+        roi = np.ones((480, 640), dtype=np.uint8) * 255
+        
+        detections = self.detector.detect(self.test_image, roi)
+        
+        assert len(detections) >= 2, "Should detect at least 2 lane lines"
+        assert all(len(line) == 4 for line in detections), "Each line should have 4 coordinates"
+    
+    def test_adaptive_threshold_parameters(self):
+        """Test adaptive threshold parameter effects"""
+        roi = np.ones((480, 640), dtype=np.uint8) * 255
+        
+        # Test with different block sizes
+        original_block_size = self.detector.adaptive_block_size
+        
+        self.detector.adaptive_block_size = 5
+        detections_small = self.detector.detect(self.test_image, roi)
+        
+        self.detector.adaptive_block_size = 21
+        detections_large = self.detector.detect(self.test_image, roi)
+        
+        # Restore original
+        self.detector.adaptive_block_size = original_block_size
+        
+        # Should get different results with different parameters
+        assert len(detections_small) != len(detections_large) or \
+               not np.array_equal(detections_small, detections_large)
+    
+    def test_noise_robustness(self):
+        """Test detector robustness to noise"""
+        roi = np.ones((480, 640), dtype=np.uint8) * 255
+        
+        # Add Gaussian noise
+        noise = np.random.normal(0, 25, self.test_image.shape).astype(np.uint8)
+        noisy_image = cv2.add(self.test_image, noise)
+        
+        clean_detections = self.detector.detect(self.test_image, roi)
+        noisy_detections = self.detector.detect(noisy_image, roi)
+        
+        # Should still detect similar number of lines
+        assert abs(len(clean_detections) - len(noisy_detections)) <= 1
+
+class TestTemporalConsistencyFilter:
+    def setup_method(self):
+        self.filter = TemporalConsistencyFilter(history_size=3, consistency_threshold=0.7)
+        
+    def test_consistency_filtering(self):
+        """Test temporal consistency filtering"""
+        # Create consistent line detections
+        consistent_line = np.array([100, 400, 150, 300])
+        inconsistent_line = np.array([500, 400, 550, 300])
+        
+        # Add consistent detections to history
+        for _ in range(3):
+            self.filter.filter([consistent_line])
+        
+        # Test with mixed detections
+        mixed_detections = [consistent_line, inconsistent_line]
+        filtered = self.filter.filter(mixed_detections)
+        
+        # Should keep consistent line, filter out inconsistent
+        assert len(filtered) == 1
+        np.testing.assert_array_equal(filtered[0], consistent_line)
+    
+    def test_empty_history_handling(self):
+        """Test behavior with empty history"""
+        detections = [np.array([100, 400, 150, 300])]
+        
+        filtered = self.filter.filter(detections)
+        
+        # Should return all detections when history is empty
+        assert len(filtered) == len(detections)
+```
+
+#### Level 2: Integration Testing
+**Scope**: Component interaction validation
+**Framework**: ROS integration testing + Docker containers
+
+```python
+# tests/integration/test_vision_pipeline_integration.py
+import rospy
+import unittest
+from sensor_msgs.msg import CompressedImage
+from duckietown_msgs.msg import SegmentList, LanePose
+from cv_bridge import CvBridge
+
+class TestVisionPipelineIntegration(unittest.TestCase):
+    def setUp(self):
+        rospy.init_node('test_vision_pipeline')
+        self.bridge = CvBridge()
+        
+        # Set up subscribers for pipeline outputs
+        self.lane_segments = None
+        self.lane_pose = None
+        
+        self.segment_sub = rospy.Subscriber(
+            '/advanced_lane_detector/segment_list',
+            SegmentList,
+            self.segment_callback
+        )
+        
+        self.pose_sub = rospy.Subscriber(
+            '/lane_filter/lane_pose',
+            LanePose,
+            self.pose_callback
+        )
+        
+        # Publisher for test images
+        self.image_pub = rospy.Publisher(
+            '/camera/image/compressed',
+            CompressedImage,
+            queue_size=1
+        )
+        
+        rospy.sleep(2)  # Allow connections to establish
+    
+    def segment_callback(self, msg):
+        self.lane_segments = msg
+    
+    def pose_callback(self, msg):
+        self.lane_pose = msg
+    
+    def test_end_to_end_pipeline(self):
+        """Test complete vision pipeline from image to pose"""
+        # Load test image
+        test_image = cv2.imread('test_data/lane_image.jpg')
+        
+        # Convert to ROS message
+        image_msg = self.bridge.cv2_to_compressed_imgmsg(test_image)
+        image_msg.header.stamp = rospy.Time.now()
+        
+        # Publish test image
+        self.image_pub.publish(image_msg)
+        
+        # Wait for processing
+        timeout = rospy.Time.now() + rospy.Duration(5.0)
+        while (self.lane_segments is None or self.lane_pose is None) and rospy.Time.now() < timeout:
+            rospy.sleep(0.1)
+        
+        # Verify outputs
+        self.assertIsNotNone(self.lane_segments, "Lane segments should be detected")
+        self.assertIsNotNone(self.lane_pose, "Lane pose should be estimated")
+        
+        # Verify segment quality
+        self.assertGreater(len(self.lane_segments.segments), 0, "Should detect lane segments")
+        
+        # Verify pose reasonableness
+        self.assertLess(abs(self.lane_pose.d), 1.0, "Lateral deviation should be reasonable")
+        self.assertLess(abs(self.lane_pose.phi), np.pi/2, "Heading error should be reasonable")
+    
+    def test_pipeline_latency(self):
+        """Test pipeline processing latency"""
+        test_image = cv2.imread('test_data/lane_image.jpg')
+        
+        start_time = rospy.Time.now()
+        
+        # Publish image
+        image_msg = self.bridge.cv2_to_compressed_imgmsg(test_image)
+        image_msg.header.stamp = start_time
+        self.image_pub.publish(image_msg)
+        
+        # Wait for pose output
+        while self.lane_pose is None or self.lane_pose.header.stamp < start_time:
+            rospy.sleep(0.01)
+        
+        end_time = rospy.Time.now()
+        latency = (end_time - start_time).to_sec()
+        
+        # Verify latency requirement
+        self.assertLess(latency, 0.2, f"Pipeline latency {latency:.3f}s exceeds 200ms requirement")
+```
+
+#### Level 3: System Testing
+**Scope**: Complete system behavior validation
+**Framework**: Gazebo simulation + Hardware-in-the-loop
+
+```python
+# tests/system/test_autonomous_navigation.py
+import rospy
+import unittest
+from geometry_msgs.msg import Twist
+from duckietown_msgs.msg import FSMState, BoolStamped
+from std_msgs.msg import String
+
+class TestAutonomousNavigation(unittest.TestCase):
+    def setUp(self):
+        rospy.init_node('test_autonomous_navigation')
+        
+        # System state monitoring
+        self.fsm_state = None
+        self.safety_status = None
+        self.control_commands = []
+        
+        # Subscribers
+        self.fsm_sub = rospy.Subscriber('/fsm/mode', FSMState, self.fsm_callback)
+        self.safety_sub = rospy.Subscriber('/safety_monitor/status', BoolStamped, self.safety_callback)
+        self.cmd_sub = rospy.Subscriber('/car_cmd', Twist, self.cmd_callback)
+        
+        # Publishers for test scenarios
+        self.scenario_pub = rospy.Publisher('/test/scenario', String, queue_size=1)
+        
+        rospy.sleep(2)
+    
+    def fsm_callback(self, msg):
+        self.fsm_state = msg.state
+    
+    def safety_callback(self, msg):
+        self.safety_status = msg.data
+    
+    def cmd_callback(self, msg):
+        self.control_commands.append(msg)
+    
+    def test_lane_following_scenario(self):
+        """Test basic lane following behavior"""
+        # Trigger lane following scenario
+        scenario_msg = String()
+        scenario_msg.data = "straight_lane_following"
+        self.scenario_pub.publish(scenario_msg)
+        
+        # Wait for system to enter lane following mode
+        timeout = rospy.Time.now() + rospy.Duration(10.0)
+        while self.fsm_state != "LANE_FOLLOWING" and rospy.Time.now() < timeout:
+            rospy.sleep(0.1)
+        
+        self.assertEqual(self.fsm_state, "LANE_FOLLOWING")
+        
+        # Monitor control commands for 5 seconds
+        start_time = rospy.Time.now()
+        self.control_commands.clear()
+        
+        while (rospy.Time.now() - start_time).to_sec() < 5.0:
+            rospy.sleep(0.1)
+        
+        # Verify reasonable control behavior
+        self.assertGreater(len(self.control_commands), 10, "Should receive regular control commands")
+        
+        # Check command reasonableness
+        for cmd in self.control_commands:
+            self.assertLessEqual(abs(cmd.linear.x), 1.0, "Linear velocity should be reasonable")
+            self.assertLessEqual(abs(cmd.angular.z), 2.0, "Angular velocity should be reasonable")
+    
+    def test_apriltag_stop_scenario(self):
+        """Test AprilTag detection and stop behavior"""
+        scenario_msg = String()
+        scenario_msg.data = "apriltag_stop_test"
+        self.scenario_pub.publish(scenario_msg)
+        
+        # Monitor for stop behavior
+        initial_commands = len(self.control_commands)
+        
+        # Wait for stop detection and execution
+        rospy.sleep(5.0)
+        
+        # Verify stop occurred (should see zero velocity commands)
+        stop_commands = [cmd for cmd in self.control_commands[initial_commands:] 
+                        if abs(cmd.linear.x) < 0.01 and abs(cmd.angular.z) < 0.01]
+        
+        self.assertGreater(len(stop_commands), 5, "Should execute stop commands")
+    
+    def test_object_avoidance_scenario(self):
+        """Test object detection and avoidance behavior"""
+        scenario_msg = String()
+        scenario_msg.data = "object_avoidance_test"
+        self.scenario_pub.publish(scenario_msg)
+        
+        # Monitor for avoidance behavior
+        initial_time = rospy.Time.now()
+        avoidance_detected = False
+        
+        while (rospy.Time.now() - initial_time).to_sec() < 10.0:
+            if self.control_commands:
+                latest_cmd = self.control_commands[-1]
+                # Look for significant steering or speed changes indicating avoidance
+                if abs(latest_cmd.angular.z) > 0.5 or latest_cmd.linear.x < 0.2:
+                    avoidance_detected = True
+                    break
+            rospy.sleep(0.1)
+        
+        self.assertTrue(avoidance_detected, "Should detect and respond to obstacles")
+```
+
+### 2. Safety Framework Implementation
+
+#### Safety Monitor Architecture
+```python
+# packages/safety_monitor/src/multi_layer_safety_monitor.py
+class MultiLayerSafetyMonitor:
+    def __init__(self):
+        # Layer 1: Hardware Safety
+        self.hardware_monitor = HardwareSafetyMonitor()
+        
+        # Layer 2: Sensor Safety
+        self.sensor_monitor = SensorSafetyMonitor()
+        
+        # Layer 3: Algorithm Safety
+        self.algorithm_monitor = AlgorithmSafetyMonitor()
+        
+        # Layer 4: Behavioral Safety
+        self.behavior_monitor = BehavioralSafetyMonitor()
+        
+        # Emergency response system
+        self.emergency_system = EmergencyResponseSystem()
+        
+        # Safety logging
+        self.safety_logger = SafetyEventLogger()
+        
+    def monitor_all_layers(self, system_state):
+        safety_report = SafetyReport()
+        
+        # Layer 1: Hardware checks
+        hardware_status = self.hardware_monitor.check_hardware_health()
+        safety_report.add_layer_status("hardware", hardware_status)
+        
+        # Layer 2: Sensor validation
+        sensor_status = self.sensor_monitor.validate_sensor_data(system_state.sensor_data)
+        safety_report.add_layer_status("sensors", sensor_status)
+        
+        # Layer 3: Algorithm validation
+        algorithm_status = self.algorithm_monitor.validate_algorithms(system_state.algorithm_outputs)
+        safety_report.add_layer_status("algorithms", algorithm_status)
+        
+        # Layer 4: Behavioral validation
+        behavior_status = self.behavior_monitor.validate_behavior(system_state.control_commands)
+        safety_report.add_layer_status("behavior", behavior_status)
+        
+        # Determine overall safety level
+        overall_safety = self.determine_overall_safety(safety_report)
+        safety_report.overall_safety_level = overall_safety
+        
+        # Execute safety responses if needed
+        if overall_safety.level >= SafetyLevel.WARNING:
+            self.execute_safety_response(overall_safety, system_state)
+        
+        # Log safety events
+        self.safety_logger.log_safety_report(safety_report)
+        
+        return safety_report
+
+class HardwareSafetyMonitor:
+    def __init__(self):
+        self.cpu_temp_threshold = 80.0  # Celsius
+        self.memory_usage_threshold = 90.0  # Percentage
+        self.disk_usage_threshold = 95.0  # Percentage
+        
+    def check_hardware_health(self):
+        health_status = HardwareHealthStatus()
+        
+        # CPU temperature check
+        cpu_temp = self.get_cpu_temperature()
+        if cpu_temp > self.cpu_temp_threshold:
+            health_status.add_issue(
+                HardwareIssue("CPU_OVERHEATING", f"CPU temperature: {cpu_temp}°C", SeverityLevel.CRITICAL)
+            )
+        
+        # Memory usage check
+        memory_usage = self.get_memory_usage()
+        if memory_usage > self.memory_usage_threshold:
+            health_status.add_issue(
+                HardwareIssue("HIGH_MEMORY_USAGE", f"Memory usage: {memory_usage}%", SeverityLevel.WARNING)
+            )
+        
+        # Disk usage check
+        disk_usage = self.get_disk_usage()
+        if disk_usage > self.disk_usage_threshold:
+            health_status.add_issue(
+                HardwareIssue("LOW_DISK_SPACE", f"Disk usage: {disk_usage}%", SeverityLevel.WARNING)
+            )
+        
+        return health_status
+
+class SensorSafetyMonitor:
+    def __init__(self):
+        self.camera_timeout = 1.0  # seconds
+        self.imu_timeout = 0.5  # seconds
+        self.wheel_encoder_timeout = 0.2  # seconds
+        
+    def validate_sensor_data(self, sensor_data):
+        validation_status = SensorValidationStatus()
+        current_time = rospy.Time.now()
+        
+        # Camera data validation
+        if sensor_data.camera_data:
+            camera_age = (current_time - sensor_data.camera_data.timestamp).to_sec()
+            if camera_age > self.camera_timeout:
+                validation_status.add_issue(
+                    SensorIssue("CAMERA_TIMEOUT", f"Camera data age: {camera_age:.2f}s", SeverityLevel.CRITICAL)
+                )
+            
+            # Image quality checks
+            if self.is_image_corrupted(sensor_data.camera_data.image):
+                validation_status.add_issue(
+                    SensorIssue("CORRUPTED_IMAGE", "Camera image appears corrupted", SeverityLevel.WARNING)
+                )
+        
+        # IMU data validation
+        if sensor_data.imu_data:
+            imu_age = (current_time - sensor_data.imu_data.timestamp).to_sec()
+            if imu_age > self.imu_timeout:
+                validation_status.add_issue(
+                    SensorIssue("IMU_TIMEOUT", f"IMU data age: {imu_age:.2f}s", SeverityLevel.WARNING)
+                )
+        
+        return validation_status
+
+class AlgorithmSafetyMonitor:
+    def __init__(self):
+        self.max_detection_latency = 0.2  # seconds
+        self.min_detection_confidence = 0.6
+        
+    def validate_algorithms(self, algorithm_outputs):
+        validation_status = AlgorithmValidationStatus()
+        
+        # Lane detection validation
+        if algorithm_outputs.lane_detection:
+            lane_output = algorithm_outputs.lane_detection
+            
+            # Latency check
+            if lane_output.processing_time > self.max_detection_latency:
+                validation_status.add_issue(
+                    AlgorithmIssue("LANE_DETECTION_SLOW", 
+                                 f"Processing time: {lane_output.processing_time:.3f}s", 
+                                 SeverityLevel.WARNING)
+                )
+            
+            # Confidence check
+            if lane_output.confidence < self.min_detection_confidence:
+                validation_status.add_issue(
+                    AlgorithmIssue("LOW_LANE_CONFIDENCE", 
+                                 f"Confidence: {lane_output.confidence:.2f}", 
+                                 SeverityLevel.WARNING)
+                )
+        
+        # Object detection validation
+        if algorithm_outputs.object_detection:
+            obj_output = algorithm_outputs.object_detection
+            
+            # Check for reasonable number of detections
+            if len(obj_output.detections) > 20:
+                validation_status.add_issue(
+                    AlgorithmIssue("TOO_MANY_DETECTIONS", 
+                                 f"Detected {len(obj_output.detections)} objects", 
+                                 SeverityLevel.WARNING)
+                )
+        
+        return validation_status
+
+class BehavioralSafetyMonitor:
+    def __init__(self):
+        self.max_linear_velocity = 1.0  # m/s
+        self.max_angular_velocity = 2.0  # rad/s
+        self.max_acceleration = 3.0  # m/s²
+        
+    def validate_behavior(self, control_commands):
+        validation_status = BehavioralValidationStatus()
+        
+        if not control_commands:
+            return validation_status
+        
+        latest_cmd = control_commands[-1]
+        
+        # Velocity limits check
+        if abs(latest_cmd.linear.x) > self.max_linear_velocity:
+            validation_status.add_issue(
+                BehavioralIssue("EXCESSIVE_LINEAR_VELOCITY", 
+                              f"Linear velocity: {latest_cmd.linear.x:.2f} m/s", 
+                              SeverityLevel.CRITICAL)
+            )
+        
+        if abs(latest_cmd.angular.z) > self.max_angular_velocity:
+            validation_status.add_issue(
+                BehavioralIssue("EXCESSIVE_ANGULAR_VELOCITY", 
+                              f"Angular velocity: {latest_cmd.angular.z:.2f} rad/s", 
+                              SeverityLevel.CRITICAL)
+            )
+        
+        # Acceleration check (if we have command history)
+        if len(control_commands) >= 2:
+            prev_cmd = control_commands[-2]
+            dt = 0.1  # Assume 10Hz control loop
+            
+            linear_accel = (latest_cmd.linear.x - prev_cmd.linear.x) / dt
+            if abs(linear_accel) > self.max_acceleration:
+                validation_status.add_issue(
+                    BehavioralIssue("EXCESSIVE_ACCELERATION", 
+                                  f"Linear acceleration: {linear_accel:.2f} m/s²", 
+                                  SeverityLevel.WARNING)
+                )
+        
+        return validation_status
+```
+
+#### Emergency Response System
+```python
+# packages/safety_monitor/src/emergency_response_system.py
+class EmergencyResponseSystem:
+    def __init__(self):
+        self.emergency_stop_publisher = rospy.Publisher('/emergency_stop', BoolStamped, queue_size=1)
+        self.led_controller = LEDController()
+        self.audio_alert = AudioAlertSystem()
+        self.fleet_notifier = FleetNotificationSystem()
+        
+        # Emergency response levels
+        self.response_levels = {
+            SafetyLevel.WARNING: self.warning_response,
+            SafetyLevel.CRITICAL: self.critical_response,
+            SafetyLevel.EMERGENCY: self.emergency_response
+        }
+        
+    def execute_safety_response(self, safety_level, system_state):
+        """Execute appropriate safety response based on safety level"""
+        if safety_level.level in self.response_levels:
+            response_func = self.response_levels[safety_level.level]
+            response_func(safety_level, system_state)
+        
+    def warning_response(self, safety_level, system_state):
+        """Handle warning-level safety issues"""
+        # Visual warning
+        self.led_controller.set_pattern("WARNING_YELLOW")
+        
+        # Log warning
+        rospy.logwarn(f"Safety warning: {safety_level.description}")
+        
+        # Reduce maximum speed
+        self.publish_speed_limit(0.5)  # 50% of normal speed
+        
+    def critical_response(self, safety_level, system_state):
+        """Handle critical-level safety issues"""
+        # Visual alert
+        self.led_controller.set_pattern("CRITICAL_ORANGE")
+        
+        # Audio alert
+        self.audio_alert.play_alert("critical_safety_issue")
+        
+        # Significant speed reduction
+        self.publish_speed_limit(0.2)  # 20% of normal speed
+        
+        # Log critical issue
+        rospy.logerr(f"Critical safety issue: {safety_level.description}")
+        
+        # Notify fleet management
+        self.fleet_notifier.notify_critical_issue(system_state.robot_id, safety_level)
+        
+    def emergency_response(self, safety_level, system_state):
+        """Handle emergency-level safety issues"""
+        # Immediate emergency stop
+        self.execute_emergency_stop()
+        
+        # Maximum visual alert
+        self.led_controller.set_pattern("EMERGENCY_RED_FLASHING")
+        
+        # Emergency audio alert
+        self.audio_alert.play_alert("emergency_stop")
+        
+        # Log emergency
+        rospy.logfatal(f"EMERGENCY: {safety_level.description}")
+        
+        # Immediate fleet notification
+        self.fleet_notifier.notify_emergency(system_state.robot_id, safety_level)
+        
+        # Disable autonomous operation
+        self.disable_autonomous_mode()
+        
+    def execute_emergency_stop(self):
+        """Execute immediate emergency stop"""
+        emergency_msg = BoolStamped()
+        emergency_msg.header.stamp = rospy.Time.now()
+        emergency_msg.data = True
+        
+        # Publish emergency stop command
+        for _ in range(10):  # Send multiple times for reliability
+            self.emergency_stop_publisher.publish(emergency_msg)
+            rospy.sleep(0.01)
+```
+
+### 3. Automated Testing Infrastructure
+
+#### Continuous Integration Pipeline
+```yaml
+# .github/workflows/advanced_duckietown_ci.yml
+name: Advanced Duckietown CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-20.04
+    container:
+      image: duckietown/dt-ros-commons:daffy
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install dependencies
+      run: |
+        apt-get update
+        apt-get install -y python3-pip
+        pip3 install pytest pytest-cov
+        pip3 install -r requirements-test.txt
+    
+    - name: Run unit tests
+      run: |
+        cd packages
+        python3 -m pytest tests/unit/ -v --cov=. --cov-report=xml
+    
+    - name: Upload coverage
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+
+  integration-tests:
+    runs-on: ubuntu-20.04
+    needs: unit-tests
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Build Docker image
+      run: |
+        docker build -t duckietown/advanced-dt-core:test .
+    
+    - name: Run integration tests
+      run: |
+        docker run --rm \
+          -v $(pwd)/tests:/tests \
+          -v $(pwd)/test_data:/test_data \
+          duckietown/advanced-dt-core:test \
+          python3 -m pytest /tests/integration/ -v
+
+  simulation-tests:
+    runs-on: ubuntu-20.04
+    needs: integration-tests
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Gazebo simulation
+      run: |
+        # Install Gazebo and Duckietown simulation environment
+        sudo apt-get update
+        sudo apt-get install -y gazebo11 ros-noetic-gazebo-ros-pkgs
+        
+        # Clone Duckietown simulation
+        git clone https://github.com/duckietown/gym-duckietown.git
+        cd gym-duckietown
+        pip3 install -e .
+    
+    - name: Run simulation tests
+      run: |
+        # Start Gazebo simulation
+        roslaunch duckietown_gazebo duckietown_world.launch &
+        sleep 30  # Wait for simulation to start
+        
+        # Run simulation-based tests
+        python3 -m pytest tests/simulation/ -v
+        
+        # Kill simulation
+        pkill -f gazebo
+
+  performance-benchmarks:
+    runs-on: ubuntu-20.04
+    needs: integration-tests
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Build optimized image
+      run: |
+        docker build -t duckietown/advanced-dt-core:benchmark \
+          --build-arg OPTIMIZE_FOR_PERFORMANCE=true .
+    
+    - name: Run performance benchmarks
+      run: |
+        docker run --rm \
+          -v $(pwd)/benchmark_results:/results \
+          duckietown/advanced-dt-core:benchmark \
+          python3 -m automated_testing.run_benchmarks --output-dir /results
+    
+    - name: Upload benchmark results
+      uses: actions/upload-artifact@v3
+      with:
+        name: benchmark-results
+        path: benchmark_results/
+
+  safety-validation:
+    runs-on: ubuntu-20.04
+    needs: [integration-tests, simulation-tests]
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Run safety validation suite
+      run: |
+        docker run --rm \
+          -v $(pwd)/safety_reports:/reports \
+          duckietown/advanced-dt-core:test \
+          python3 -m safety_monitor.validation_suite --output-dir /reports
+    
+    - name: Check safety requirements
+      run: |
+        python3 scripts/check_safety_requirements.py safety_reports/
+    
+    - name: Upload safety reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: safety-reports
+        path: safety_reports/
+
+  deploy-staging:
+    runs-on: ubuntu-20.04
+    needs: [unit-tests, integration-tests, simulation-tests, performance-benchmarks, safety-validation]
+    if: github.ref == 'refs/heads/develop'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Build production image
+      run: |
+        docker build -t duckietown/advanced-dt-core:staging \
+          --build-arg OPTIMIZE_FOR_PRODUCTION=true .
+    
+    - name: Deploy to staging environment
+      run: |
+        # Deploy to staging robots for real-world testing
+        ./scripts/deploy_to_staging.sh
+
+  deploy-production:
+    runs-on: ubuntu-20.04
+    needs: [unit-tests, integration-tests, simulation-tests, performance-benchmarks, safety-validation]
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Build production image
+      run: |
+        docker build -t duckietown/advanced-dt-core:latest \
+          --build-arg OPTIMIZE_FOR_PRODUCTION=true .
+    
+    - name: Push to registry
+      run: |
+        echo ${{ secrets.DOCKER_PASSWORD }} | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
+        docker push duckietown/advanced-dt-core:latest
+    
+    - name: Create release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ github.run_number }}
+        release_name: Advanced Duckietown Release v${{ github.run_number }}
+        draft: false
+        prerelease: false
+```
+
+#### Hardware-in-the-Loop Testing
+```python
+# tests/hardware/test_hardware_integration.py
+import rospy
+import unittest
+import subprocess
+import time
+from sensor_msgs.msg import CompressedImage, Joy
+from geometry_msgs.msg import Twist
+from duckietown_msgs.msg import WheelsCmdStamped
+
+class TestHardwareIntegration(unittest.TestCase):
+    """Hardware-in-the-loop tests for real robot validation"""
+    
+    def setUp(self):
+        rospy.init_node('test_hardware_integration')
+        
+        # Check if we're running on actual hardware
+        self.is_hardware = self.check_hardware_availability()
+        if not self.is_hardware:
+            self.skipTest("Hardware not available - skipping hardware tests")
+        
+        # Initialize hardware interfaces
+        self.camera_data = None
+        self.wheel_commands = []
+        
+        # Subscribers
+        self.camera_sub = rospy.Subscriber(
+            '/camera/image/compressed', CompressedImage, self.camera_callback
+        )
+        self.wheels_sub = rospy.Subscriber(
+            '/wheels_driver_node/wheels_cmd', WheelsCmdStamped, self.wheels_callback
+        )
+        
+        # Publishers
+        self.joy_pub = rospy.Publisher('/joy', Joy, queue_size=1)
+        
+        rospy.sleep(2)  # Allow connections to establish
+    
+    def check_hardware_availability(self):
+        """Check if running on actual Duckiebot hardware"""
+        try:
+            # Check for camera device
+            result = subprocess.run(['ls', '/dev/video0'], capture_output=True)
+            camera_available = result.returncode == 0
+            
+            # Check for GPIO (Raspberry Pi indicator)
+            result = subprocess.run(['ls', '/dev/gpiomem'], capture_output=True)
+            gpio_available = result.returncode == 0
+            
+            return camera_available and gpio_available
+        except:
+            return False
+    
+    def camera_callback(self, msg):
+        self.camera_data = msg
+    
+    def wheels_callback(self, msg):
+        self.wheel_commands.append(msg)
+    
+    def test_camera_hardware(self):
+        """Test camera hardware functionality"""
+        # Wait for camera data
+        timeout = rospy.Time.now() + rospy.Duration(10.0)
+        while self.camera_data is None and rospy.Time.now() < timeout:
+            rospy.sleep(0.1)
+        
+        self.assertIsNotNone(self.camera_data, "Should receive camera data from hardware")
+        
+        # Check image properties
+        self.assertGreater(len(self.camera_data.data), 1000, "Image data should be substantial")
+        
+        # Check timestamp freshness
+        age = (rospy.Time.now() - self.camera_data.header.stamp).to_sec()
+        self.assertLess(age, 1.0, "Camera data should be recent")
+    
+    def test_motor_hardware(self):
+        """Test motor control hardware"""
+        # Send joystick command to trigger motor movement
+        joy_msg = Joy()
+        joy_msg.header.stamp = rospy.Time.now()
+        joy_msg.axes = [0.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]  # Forward motion
+        joy_msg.buttons = [0] * 12
+        
+        initial_commands = len(self.wheel_commands)
+        
+        # Publish joystick command
+        for _ in range(10):
+            self.joy_pub.publish(joy_msg)
+            rospy.sleep(0.1)
+        
+        # Check if wheel commands were generated
+        new_commands = len(self.wheel_commands) - initial_commands
+        self.assertGreater(new_commands, 0, "Should generate wheel commands from joystick input")
+        
+        # Verify command reasonableness
+        if self.wheel_commands:
+            latest_cmd = self.wheel_commands[-1]
+            self.assertLessEqual(abs(latest_cmd.vel_left), 1.0, "Left wheel velocity should be reasonable")
+            self.assertLessEqual(abs(latest_cmd.vel_right), 1.0, "Right wheel velocity should be reasonable")
+    
+    def test_system_latency(self):
+        """Test end-to-end system latency on hardware"""
+        # Clear previous data
+        self.camera_data = None
+        self.wheel_commands.clear()
+        
+        # Send joystick command and measure response time
+        start_time = rospy.Time.now()
+        
+        joy_msg = Joy()
+        joy_msg.header.stamp = start_time
+        joy_msg.axes = [0.0, 0.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        joy_msg.buttons = [0] * 12
+        
+        self.joy_pub.publish(joy_msg)
+        
+        # Wait for wheel command response
+        while not self.wheel_commands:
+            rospy.sleep(0.01)
+            if (rospy.Time.now() - start_time).to_sec() > 2.0:
+                break
+        
+        if self.wheel_commands:
+            response_time = (self.wheel_commands[0].header.stamp - start_time).to_sec()
+            self.assertLess(response_time, 0.5, f"System response time {response_time:.3f}s too high")
+    
+    def test_emergency_stop_hardware(self):
+        """Test emergency stop functionality on hardware"""
+        # Send emergency stop command
+        emergency_joy = Joy()
+        emergency_joy.header.stamp = rospy.Time.now()
+        emergency_joy.axes = [0.0] * 8
+        emergency_joy.buttons = [0] * 12
+        emergency_joy.buttons[0] = 1  # Emergency stop button
+        
+        initial_commands = len(self.wheel_commands)
+        
+        self.joy_pub.publish(emergency_joy)
+        rospy.sleep(0.5)
+        
+        # Check that motors stopped
+        recent_commands = self.wheel_commands[initial_commands:]
+        if recent_commands:
+            latest_cmd = recent_commands[-1]
+            self.assertAlmostEqual(latest_cmd.vel_left, 0.0, places=2, 
+                                 msg="Left wheel should stop on emergency")
+            self.assertAlmostEqual(latest_cmd.vel_right, 0.0, places=2, 
+                                 msg="Right wheel should stop on emergency")
+
+if __name__ == '__main__':
+    unittest.main()
+```
+
+This comprehensive testing and safety framework ensures robust validation of the advanced Duckietown system across all levels - from individual components to complete system behavior, with particular emphasis on safety-critical functionality and real-world hardware validation.
+
+# Deployment Configuration & Cross-Platform Setup
+
+## Cross-Platform Development Workflow
+
+### Development Environment Setup (macOS)
+
+#### Prerequisites Installation
+```bash
+#!/bin/bash
+# setup_macos_dev.sh - Development environment setup for macOS
+
+set -e
+
+echo "Setting up Duckietown Advanced Development Environment on macOS..."
+
+# 1. Install Homebrew if not present
+if ! command -v brew &> /dev/null; then
+    echo "Installing Homebrew..."
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+fi
+
+# 2. Install Docker Desktop
+if ! command -v docker &> /dev/null; then
+    echo "Installing Docker Desktop..."
+    brew install --cask docker
+    echo "Please start Docker Desktop and return to continue..."
+    read -p "Press enter when Docker Desktop is running..."
+fi
+
+# 3. Install development tools
+echo "Installing development tools..."
+brew install git python@3.9 cmake wget
+
+# 4. Install Python dependencies
+echo "Installing Python development dependencies..."
+pip3 install --user \
+    docker-compose \
+    pytest \
+    pytest-cov \
+    black \
+    flake8 \
+    pre-commit
+
+# 5. Setup Docker buildx for multi-platform builds
+echo "Setting up Docker buildx..."
+docker buildx create --name duckietown-builder --use
+docker buildx inspect --bootstrap
+
+# 6. Clone and setup repository
+if [ ! -d "dt-core-advanced" ]; then
+    echo "Cloning repository..."
+    git clone https://github.com/duckietown/dt-core-advanced.git
+    cd dt-core-advanced
+else
+    cd dt-core-advanced
+    git pull
+fi
+
+# 7. Setup pre-commit hooks
+echo "Setting up pre-commit hooks..."
+pre-commit install
+
+# 8. Build development Docker image
+echo "Building development Docker image..."
+docker build -t duckietown/advanced-dt-core:dev-macos \
+    --target development \
+    --platform linux/amd64 \
+    .
+
+echo "✅ Development environment setup complete!"
+echo "Run 'make dev-shell' to start development container"
+```
+
+#### Development Docker Configuration
+```dockerfile
+# Dockerfile.dev - Multi-stage development configuration
+FROM duckietown/dt-ros-commons:daffy as base
+
+# Development stage - optimized for macOS development
+FROM base as development
+ARG TARGETPLATFORM
+ARG BUILDPLATFORM
+
+# Install development tools
+RUN apt-get update && apt-get install -y \
+    gdb \
+    valgrind \
+    htop \
+    vim \
+    tmux \
+    git \
+    curl \
+    wget \
+    python3-pip \
+    python3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python development dependencies
+COPY requirements-dev.txt /tmp/
+RUN pip3 install -r /tmp/requirements-dev.txt
+
+# Install PyTorch for development (CPU version for faster builds)
+RUN pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
+# Setup development workspace
+WORKDIR /workspace
+ENV PYTHONPATH="/workspace/packages:$PYTHONPATH"
+
+# Development entrypoint
+COPY scripts/dev-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/dev-entrypoint.sh
+ENTRYPOINT ["/usr/local/bin/dev-entrypoint.sh"]
+
+# Testing stage - optimized for CI/CD
+FROM base as testing
+ARG TARGETPLATFORM
+
+# Install testing dependencies
+RUN apt-get update && apt-get install -y \
+    python3-pytest \
+    python3-pytest-cov \
+    python3-pytest-xdist \
+    ros-noetic-rostest \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy test requirements
+COPY requirements-test.txt /tmp/
+RUN pip3 install -r /tmp/requirements-test.txt
+
+# Copy source code
+COPY packages/ ${CATKIN_WS_DIR}/src/dt-core-advanced/packages/
+COPY tests/ /tests/
+
+# Build packages
+RUN . /opt/ros/noetic/setup.sh && \
+    catkin build --workspace ${CATKIN_WS_DIR}/
+
+# Test entrypoint
+COPY scripts/test-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/test-entrypoint.sh
+ENTRYPOINT ["/usr/local/bin/test-entrypoint.sh"]
+
+# Production stage - optimized for deployment
+FROM base as production
+ARG TARGETPLATFORM
+ARG OPTIMIZE_FOR_PRODUCTION=false
+
+# Install production dependencies only
+COPY requirements-prod.txt /tmp/
+RUN pip3 install --no-cache-dir -r /tmp/requirements-prod.txt
+
+# Install optimized PyTorch
+RUN if [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
+        # ARM64 optimized PyTorch
+        pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cpu; \
+    else \
+        # x86_64 optimized PyTorch
+        pip3 install torch torchvision; \
+    fi
+
+# Copy and build source code
+COPY packages/ ${CATKIN_WS_DIR}/src/dt-core-advanced/packages/
+RUN . /opt/ros/noetic/setup.sh && \
+    catkin build --workspace ${CATKIN_WS_DIR}/ \
+    $(if [ "$OPTIMIZE_FOR_PRODUCTION" = "true" ]; then echo "--cmake-args -DCMAKE_BUILD_TYPE=Release"; fi)
+
+# Download and optimize models
+RUN mkdir -p /models
+COPY scripts/download-models.sh /tmp/
+RUN chmod +x /tmp/download-models.sh && /tmp/download-models.sh
+
+# Production optimizations
+RUN if [ "$OPTIMIZE_FOR_PRODUCTION" = "true" ]; then \
+        # Remove unnecessary packages
+        apt-get autoremove -y && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/* && \
+        # Optimize Python bytecode
+        python3 -m compileall /opt/ros/noetic/ && \
+        python3 -m compileall ${CATKIN_WS_DIR}/; \
+    fi
+
+# Production entrypoint
+COPY scripts/prod-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/prod-entrypoint.sh
+ENTRYPOINT ["/usr/local/bin/prod-entrypoint.sh"]
+```
+
+### Development Workflow
+
+#### Makefile for Cross-Platform Development
+```makefile
+# Makefile - Cross-platform development workflow
+
+# Platform detection
+UNAME_S := $(shell uname -s)
+UNAME_M := $(shell uname -m)
+
+# Docker configuration
+DOCKER_REGISTRY ?= duckietown
+IMAGE_NAME ?= advanced-dt-core
+DEV_TAG ?= dev-$(shell echo $(UNAME_S) | tr '[:upper:]' '[:lower:]')
+TEST_TAG ?= test
+PROD_TAG ?= latest
+
+# Development targets
+.PHONY: dev-setup dev-shell dev-build dev-test dev-clean
+
+dev-setup:
+	@echo "Setting up development environment for $(UNAME_S)..."
+	@if [ "$(UNAME_S)" = "Darwin" ]; then \
+		./scripts/setup_macos_dev.sh; \
+	elif [ "$(UNAME_S)" = "Linux" ]; then \
+		./scripts/setup_linux_dev.sh; \
+	else \
+		echo "Unsupported platform: $(UNAME_S)"; \
+		exit 1; \
+	fi
+
+dev-build:
+	@echo "Building development image..."
+	docker build -t $(DOCKER_REGISTRY)/$(IMAGE_NAME):$(DEV_TAG) \
+		--target development \
+		--platform linux/amd64 \
+		.
+
+dev-shell: dev-build
+	@echo "Starting development shell..."
+	docker run -it --rm \
+		-v $(PWD):/workspace \
+		-v /tmp/.X11-unix:/tmp/.X11-unix:rw \
+		-e DISPLAY=$(DISPLAY) \
+		-p 8080:8080 \
+		--name dt-dev-shell \
+		$(DOCKER_REGISTRY)/$(IMAGE_NAME):$(DEV_TAG) \
+		bash
+
+dev-test: dev-build
+	@echo "Running development tests..."
+	docker run --rm \
+		-v $(PWD):/workspace \
+		$(DOCKER_REGISTRY)/$(IMAGE_NAME):$(DEV_TAG) \
+		python3 -m pytest tests/ -v
+
+dev-clean:
+	@echo "Cleaning development environment..."
+	docker system prune -f
+	docker volume prune -f
+
+# Testing targets
+.PHONY: test-unit test-integration test-simulation test-all
+
+test-build:
+	@echo "Building test image..."
+	docker build -t $(DOCKER_REGISTRY)/$(IMAGE_NAME):$(TEST_TAG) \
+		--target testing \
+		.
+
+test-unit: test-build
+	@echo "Running unit tests..."
+	docker run --rm \
+		-v $(PWD)/test_results:/test_results \
+		$(DOCKER_REGISTRY)/$(IMAGE_NAME):$(TEST_TAG) \
+		python3 -m pytest tests/unit/ -v --junitxml=/test_results/unit-tests.xml
+
+test-integration: test-build
+	@echo "Running integration tests..."
+	docker run --rm \
+		-v $(PWD)/test_results:/test_results \
+		$(DOCKER_REGISTRY)/$(IMAGE_NAME):$(TEST_TAG) \
+		python3 -m pytest tests/integration/ -v --junitxml=/test_results/integration-tests.xml
+
+test-simulation: test-build
+	@echo "Running simulation tests..."
+	docker run --rm \
+		-v $(PWD)/test_results:/test_results \
+		--privileged \
+		$(DOCKER_REGISTRY)/$(IMAGE_NAME):$(TEST_TAG) \
+		python3 -m pytest tests/simulation/ -v --junitxml=/test_results/simulation-tests.xml
+
+test-all: test-unit test-integration test-simulation
+	@echo "All tests completed. Results in test_results/"
+
+# Production targets
+.PHONY: prod-build prod-build-arm64 prod-push prod-deploy
+
+prod-build:
+	@echo "Building production image for x86_64..."
+	docker build -t $(DOCKER_REGISTRY)/$(IMAGE_NAME):$(PROD_TAG) \
+		--target production \
+		--build-arg OPTIMIZE_FOR_PRODUCTION=true \
+		--platform linux/amd64 \
+		.
+
+prod-build-arm64:
+	@echo "Building production image for ARM64..."
+	docker buildx build -t $(DOCKER_REGISTRY)/$(IMAGE_NAME):$(PROD_TAG)-arm64 \
+		--target production \
+		--build-arg OPTIMIZE_FOR_PRODUCTION=true \
+		--platform linux/arm64 \
+		--push \
+		.
+
+prod-build-multi:
+	@echo "Building multi-platform production image..."
+	docker buildx build -t $(DOCKER_REGISTRY)/$(IMAGE_NAME):$(PROD_TAG) \
+		--target production \
+		--build-arg OPTIMIZE_FOR_PRODUCTION=true \
+		--platform linux/amd64,linux/arm64 \
+		--push \
+		.
+
+prod-push: prod-build
+	@echo "Pushing production image..."
+	docker push $(DOCKER_REGISTRY)/$(IMAGE_NAME):$(PROD_TAG)
+
+# Deployment targets
+.PHONY: deploy-staging deploy-production deploy-robot
+
+deploy-staging:
+	@echo "Deploying to staging environment..."
+	./scripts/deploy_staging.sh
+
+deploy-production:
+	@echo "Deploying to production environment..."
+	./scripts/deploy_production.sh
+
+deploy-robot:
+	@echo "Deploying to robot..."
+	@read -p "Enter robot hostname/IP: " ROBOT_HOST; \
+	./scripts/deploy_robot.sh $$ROBOT_HOST
+
+# Utility targets
+.PHONY: lint format check-deps security-scan
+
+lint:
+	@echo "Running code linting..."
+	docker run --rm -v $(PWD):/workspace \
+		$(DOCKER_REGISTRY)/$(IMAGE_NAME):$(DEV_TAG) \
+		flake8 packages/ --max-line-length=100
+
+format:
+	@echo "Formatting code..."
+	docker run --rm -v $(PWD):/workspace \
+		$(DOCKER_REGISTRY)/$(IMAGE_NAME):$(DEV_TAG) \
+		black packages/ tests/
+
+check-deps:
+	@echo "Checking dependencies..."
+	docker run --rm -v $(PWD):/workspace \
+		$(DOCKER_REGISTRY)/$(IMAGE_NAME):$(DEV_TAG) \
+		pip-audit
+
+security-scan:
+	@echo "Running security scan..."
+	docker run --rm -v $(PWD):/workspace \
+		aquasec/trivy:latest \
+		fs --security-checks vuln /workspace
+
+# Help target
+help:
+	@echo "Available targets:"
+	@echo "  dev-setup      - Setup development environment"
+	@echo "  dev-shell      - Start development shell"
+	@echo "  dev-build      - Build development image"
+	@echo "  dev-test       - Run development tests"
+	@echo "  test-all       - Run all tests"
+	@echo "  prod-build     - Build production image"
+	@echo "  prod-build-arm64 - Build ARM64 production image"
+	@echo "  deploy-robot   - Deploy to robot"
+	@echo "  lint           - Run code linting"
+	@echo "  format         - Format code"
+	@echo "  help           - Show this help"
+```
+
+### Robot Deployment Configuration
+
+#### Robot-Specific Docker Compose
+```yaml
+# docker-compose.robot.yml - Robot deployment configuration
+version: '3.8'
+
+services:
+  advanced-dt-core:
+    image: duckietown/advanced-dt-core:latest-arm64
+    container_name: advanced-dt-core
+    restart: unless-stopped
+    privileged: true
+    network_mode: host
+    
+    environment:
+      - VEHICLE_NAME=${VEHICLE_NAME}
+      - ROS_MASTER_URI=http://localhost:11311
+      - ROS_IP=${ROS_IP}
+      - DUCKIETOWN_ROOT=/data
+      - DUCKIETOWN_DATA=/data/logs
+      - YOLO_MODEL_PATH=/models/yolov5s_duckietown.pt
+      - CUDA_VISIBLE_DEVICES=""  # Force CPU inference on robot
+      
+    volumes:
+      # Configuration
+      - /data/config:/data/config:ro
+      - /data/calibrations:/data/calibrations:ro
+      
+      # Data and logs
+      - /data/logs:/data/logs
+      - /data/bags:/data/bags
+      
+      # Hardware access
+      - /dev:/dev
+      - /sys:/sys:ro
+      - /proc:/proc:ro
+      
+      # Models
+      - ./models:/models:ro
+      
+    devices:
+      - /dev/video0:/dev/video0  # Camera
+      - /dev/i2c-1:/dev/i2c-1    # I2C for sensors
+      - /dev/gpiomem:/dev/gpiomem # GPIO access
+      
+    command: >
+      bash -c "
+        source /opt/ros/noetic/setup.bash &&
+        source /code/catkin_ws/devel/setup.bash &&
+        roslaunch duckietown_demos advanced_lane_following.launch
+      "
+    
+    healthcheck:
+      test: ["CMD", "rostopic", "echo", "/advanced_coordinator/status", "-n", "1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  roscore:
+    image: ros:noetic-ros-core
+    container_name: roscore
+    restart: unless-stopped
+    network_mode: host
+    command: roscore
+    
+    healthcheck:
+      test: ["CMD", "rostopic", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  monitoring:
+    image: duckietown/dt-monitoring:latest
+    container_name: dt-monitoring
+    restart: unless-stopped
+    network_mode: host
+    
+    environment:
+      - VEHICLE_NAME=${VEHICLE_NAME}
+      - MONITORING_INTERVAL=10
+      
+    volumes:
+      - /data/logs:/data/logs
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      
+    depends_on:
+      - advanced-dt-core
+```
+
+#### Robot Deployment Script
+```bash
+#!/bin/bash
+# scripts/deploy_robot.sh - Deploy to specific robot
+
+set -e
+
+ROBOT_HOST=${1:-"duckiebot.local"}
+ROBOT_USER=${2:-"duckie"}
+IMAGE_TAG=${3:-"latest-arm64"}
+
+echo "Deploying Advanced Duckietown System to $ROBOT_HOST..."
+
+# 1. Check robot connectivity
+echo "Checking robot connectivity..."
+if ! ping -c 1 $ROBOT_HOST > /dev/null 2>&1; then
+    echo "❌ Cannot reach robot at $ROBOT_HOST"
+    exit 1
+fi
+
+# 2. Check SSH access
+echo "Checking SSH access..."
+if ! ssh -o ConnectTimeout=5 $ROBOT_USER@$ROBOT_HOST "echo 'SSH OK'" > /dev/null 2>&1; then
+    echo "❌ Cannot SSH to robot. Please check SSH keys."
+    exit 1
+fi
+
+# 3. Prepare deployment files
+echo "Preparing deployment files..."
+TEMP_DIR=$(mktemp -d)
+cp docker-compose.robot.yml $TEMP_DIR/
+cp -r config/ $TEMP_DIR/
+cp -r models/ $TEMP_DIR/
+
+# 4. Transfer files to robot
+echo "Transferring files to robot..."
+scp -r $TEMP_DIR/* $ROBOT_USER@$ROBOT_HOST:/data/advanced-dt-core/
+
+# 5. Stop existing services
+echo "Stopping existing services..."
+ssh $ROBOT_USER@$ROBOT_HOST "
+    cd /data/advanced-dt-core &&
+    docker-compose down || true
+"
+
+# 6. Pull latest image
+echo "Pulling latest image on robot..."
+ssh $ROBOT_USER@$ROBOT_HOST "
+    docker pull duckietown/advanced-dt-core:$IMAGE_TAG
+"
+
+# 7. Start services
+echo "Starting advanced services..."
+ssh $ROBOT_USER@$ROBOT_HOST "
+    cd /data/advanced-dt-core &&
+    export VEHICLE_NAME=\$(hostname) &&
+    export ROS_IP=\$(hostname -I | awk '{print \$1}') &&
+    docker-compose -f docker-compose.robot.yml up -d
+"
+
+# 8. Verify deployment
+echo "Verifying deployment..."
+sleep 30
+
+# Check if containers are running
+CONTAINERS_RUNNING=$(ssh $ROBOT_USER@$ROBOT_HOST "docker ps --format 'table {{.Names}}\t{{.Status}}' | grep -E '(advanced-dt-core|roscore)' | wc -l")
+
+if [ "$CONTAINERS_RUNNING" -ge 2 ]; then
+    echo "✅ Deployment successful!"
+    
+    # Show status
+    ssh $ROBOT_USER@$ROBOT_HOST "
+        echo 'Container Status:'
+        docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+        
+        echo -e '\nSystem Health:'
+        docker exec advanced-dt-core rostopic echo /advanced_coordinator/status -n 1 2>/dev/null || echo 'Health check pending...'
+    "
+else
+    echo "❌ Deployment failed. Checking logs..."
+    ssh $ROBOT_USER@$ROBOT_HOST "
+        docker-compose -f /data/advanced-dt-core/docker-compose.robot.yml logs --tail=50
+    "
+    exit 1
+fi
+
+# 9. Cleanup
+rm -rf $TEMP_DIR
+
+echo "🎉 Advanced Duckietown System deployed successfully to $ROBOT_HOST!"
+echo "Monitor with: ssh $ROBOT_USER@$ROBOT_HOST 'docker logs -f advanced-dt-core'"
+```
+
+### Configuration Management
+
+#### Environment-Specific Configurations
+```yaml
+# config/environments/development.yaml
+environment: development
+debug: true
+log_level: DEBUG
+
+camera:
+  resolution: [640, 480]
+  fps: 30
+  exposure: auto
+
+lane_detection:
+  adaptive_threshold:
+    block_size: 11
+    c_value: 2
+  temporal_filter:
+    history_size: 3
+    consistency_threshold: 0.6
+
+object_detection:
+  model_path: "/models/yolov5s_duckietown_dev.pt"
+  confidence_threshold: 0.5
+  nms_threshold: 0.4
+  input_size: [416, 416]
+
+safety_monitor:
+  emergency_stop_enabled: true
+  max_linear_velocity: 0.5  # Reduced for development
+  max_angular_velocity: 1.0
+  collision_distance_threshold: 0.8
+
+performance:
+  max_cpu_usage: 80
+  max_memory_usage: 1024  # MB
+  target_fps: 20
+
+---
+# config/environments/production.yaml
+environment: production
+debug: false
+log_level: INFO
+
+camera:
+  resolution: [640, 480]
+  fps: 30
+  exposure: auto
+  auto_white_balance: true
+
+lane_detection:
+  adaptive_threshold:
+    block_size: 11
+    c_value: 2
+  temporal_filter:
+    history_size: 5
+    consistency_threshold: 0.8
+
+object_detection:
+  model_path: "/models/yolov5s_duckietown_optimized.pt"
+  confidence_threshold: 0.7
+  nms_threshold: 0.4
+  input_size: [416, 416]
+
+safety_monitor:
+  emergency_stop_enabled: true
+  max_linear_velocity: 1.0
+  max_angular_velocity: 2.0
+  collision_distance_threshold: 0.5
+
+performance:
+  max_cpu_usage: 90
+  max_memory_usage: 512  # MB - optimized for robot
+  target_fps: 30
+
+apriltag_detection:
+  stop_distance: 0.3  # meters
+  deceleration_distance: 1.0  # meters
+  stop_duration: 2.0  # seconds
+
+lane_changing:
+  enabled: true
+  safety_margin: 1.5  # meters
+  max_lateral_acceleration: 2.0  # m/s²
+```
+
+#### Robot-Specific Calibration
+```python
+# scripts/robot_calibration.py - Robot-specific calibration management
+import yaml
+import numpy as np
+import cv2
+import rospy
+from sensor_msgs.msg import CameraInfo
+
+class RobotCalibrationManager:
+    def __init__(self, robot_name):
+        self.robot_name = robot_name
+        self.calibration_path = f"/data/calibrations/{robot_name}"
+        
+    def load_camera_calibration(self):
+        """Load camera calibration for specific robot"""
+        calib_file = f"{self.calibration_path}/camera_intrinsic.yaml"
+        
+        try:
+            with open(calib_file, 'r') as f:
+                calib_data = yaml.safe_load(f)
+            
+            camera_matrix = np.array(calib_data['camera_matrix']['data']).reshape(3, 3)
+            distortion_coeffs = np.array(calib_data['distortion_coefficients']['data'])
+            
+            return camera_matrix, distortion_coeffs
+            
+        except FileNotFoundError:
+            rospy.logwarn(f"Camera calibration not found for {self.robot_name}, using defaults")
+            return self.get_default_camera_calibration()
+    
+    def load_kinematics_calibration(self):
+        """Load kinematics calibration for specific robot"""
+        kinematics_file = f"{self.calibration_path}/kinematics.yaml"
+        
+        try:
+            with open(kinematics_file, 'r') as f:
+                kinematics_data = yaml.safe_load(f)
+            
+            return {
+                'baseline': kinematics_data.get('baseline', 0.1),
+                'radius': kinematics_data.get('radius', 0.0318),
+                'k': kinematics_data.get('k', 27.0),
+                'gain': kinematics_data.get('gain', 1.0),
+                'trim': kinematics_data.get('trim', 0.0)
+            }
+            
+        except FileNotFoundError:
+            rospy.logwarn(f"Kinematics calibration not found for {self.robot_name}, using defaults")
+            return self.get_default_kinematics()
+    
+    def save_calibration(self, calibration_type, calibration_data):
+        """Save calibration data for robot"""
+        import os
+        os.makedirs(self.calibration_path, exist_ok=True)
+        
+        calib_file = f"{self.calibration_path}/{calibration_type}.yaml"
+        
+        with open(calib_file, 'w') as f:
+            yaml.dump(calibration_data, f, default_flow_style=False)
+        
+        rospy.loginfo(f"Saved {calibration_type} calibration for {self.robot_name}")
+    
+    def get_default_camera_calibration(self):
+        """Default camera calibration parameters"""
+        # Default parameters for Duckietown camera
+        camera_matrix = np.array([
+            [305.5718893575089, 0, 303.0797142544728],
+            [0, 308.8338858195428, 231.8845403702499],
+            [0, 0, 1]
+        ])
+        
+        distortion_coeffs = np.array([
+            -0.2, 0.0305, 0.0005859930422629722, -0.0006697840226199427, 0
+        ])
+        
+        return camera_matrix, distortion_coeffs
+    
+    def get_default_kinematics(self):
+        """Default kinematics parameters"""
+        return {
+            'baseline': 0.1,      # Distance between wheels (m)
+            'radius': 0.0318,     # Wheel radius (m)
+            'k': 27.0,           # Motor constant
+            'gain': 1.0,         # Overall gain
+            'trim': 0.0          # Steering trim
+        }
+
+# Usage in robot configuration
+def setup_robot_configuration():
+    robot_name = rospy.get_param('/vehicle_name', 'duckiebot')
+    
+    calibration_manager = RobotCalibrationManager(robot_name)
+    
+    # Load calibrations
+    camera_matrix, distortion_coeffs = calibration_manager.load_camera_calibration()
+    kinematics = calibration_manager.load_kinematics_calibration()
+    
+    # Set ROS parameters
+    rospy.set_param('/camera/camera_matrix', camera_matrix.tolist())
+    rospy.set_param('/camera/distortion_coefficients', distortion_coeffs.tolist())
+    rospy.set_param('/kinematics', kinematics)
+    
+    rospy.loginfo(f"Configuration loaded for robot: {robot_name}")
+```
+
+### Monitoring and Maintenance
+
+#### System Health Monitoring
+```python
+# scripts/system_monitor.py - Comprehensive system monitoring
+import psutil
+import docker
+import rospy
+import json
+from datetime import datetime
+from std_msgs.msg import String
+
+class SystemHealthMonitor:
+    def __init__(self):
+        self.docker_client = docker.from_env()
+        self.health_pub = rospy.Publisher('/system/health', String, queue_size=1)
+        
+    def collect_system_metrics(self):
+        """Collect comprehensive system metrics"""
+        metrics = {
+            'timestamp': datetime.now().isoformat(),
+            'cpu': {
+                'usage_percent': psutil.cpu_percent(interval=1),
+                'temperature': self.get_cpu_temperature(),
+                'frequency': psutil.cpu_freq()._asdict() if psutil.cpu_freq() else None
+            },
+            'memory': {
+                'usage_percent': psutil.virtual_memory().percent,
+                'available_mb': psutil.virtual_memory().available / 1024 / 1024,
+                'total_mb': psutil.virtual_memory().total / 1024 / 1024
+            },
+            'disk': {
+                'usage_percent': psutil.disk_usage('/').percent,
+                'free_gb': psutil.disk_usage('/').free / 1024 / 1024 / 1024
+            },
+            'network': self.get_network_stats(),
+            'containers': self.get_container_health(),
+            'ros_nodes': self.get_ros_node_status()
+        }
+        
+        return metrics
+    
+    def get_cpu_temperature(self):
+        """Get CPU temperature (Raspberry Pi specific)"""
+        try:
+            with open('/sys/class/thermal/thermal_zone0/temp', 'r') as f:
+                temp = float(f.read()) / 1000.0
+            return temp
+        except:
+            return None
+    
+    def get_container_health(self):
+        """Get Docker container health status"""
+        containers = {}
+        
+        for container in self.docker_client.containers.list():
+            containers[container.name] = {
+                'status': container.status,
+                'health': container.attrs.get('State', {}).get('Health', {}).get('Status'),
+                'cpu_usage': self.get_container_cpu_usage(container),
+                'memory_usage': self.get_container_memory_usage(container)
+            }
+        
+        return containers
+    
+    def get_ros_node_status(self):
+        """Get ROS node status"""
+        try:
+            import subprocess
+            result = subprocess.run(['rosnode', 'list'], capture_output=True, text=True)
+            nodes = result.stdout.strip().split('\n') if result.returncode == 0 else []
+            
+            node_status = {}
+            for node in nodes:
+                if node:
+                    # Check if node is responsive
+                    ping_result = subprocess.run(
+                        ['rosnode', 'ping', node, '-c', '1'], 
+                        capture_output=True, 
+                        timeout=2
+                    )
+                    node_status[node] = 'healthy' if ping_result.returncode == 0 else 'unresponsive'
+            
+            return node_status
+        except:
+            return {}
+    
+    def publish_health_status(self):
+        """Publish system health status"""
+        metrics = self.collect_system_metrics()
+        health_status = self.evaluate_health(metrics)
+        
+        health_msg = String()
+        health_msg.data = json.dumps({
+            'overall_health': health_status,
+            'metrics': metrics
+        })
+        
+        self.health_pub.publish(health_msg)
+        
+        return health_status
+    
+    def evaluate_health(self, metrics):
+        """Evaluate overall system health"""
+        issues = []
+        
+        # CPU checks
+        if metrics['cpu']['usage_percent'] > 90:
+            issues.append('HIGH_CPU_USAGE')
+        
+        if metrics['cpu']['temperature'] and metrics['cpu']['temperature'] > 80:
+            issues.append('CPU_OVERHEATING')
+        
+        # Memory checks
+        if metrics['memory']['usage_percent'] > 90:
+            issues.append('HIGH_MEMORY_USAGE')
+        
+        # Disk checks
+        if metrics['disk']['usage_percent'] > 95:
+            issues.append('LOW_DISK_SPACE')
+        
+        # Container checks
+        for container_name, container_info in metrics['containers'].items():
+            if container_info['status'] != 'running':
+                issues.append(f'CONTAINER_DOWN_{container_name}')
+        
+        # ROS node checks
+        critical_nodes = ['/advanced_coordinator', '/safety_monitor', '/camera_node']
+        for node in critical_nodes:
+            if node in metrics['ros_nodes'] and metrics['ros_nodes'][node] != 'healthy':
+                issues.append(f'ROS_NODE_UNHEALTHY_{node}')
+        
+        if not issues:
+            return 'HEALTHY'
+        elif len(issues) <= 2:
+            return 'WARNING'
+        else:
+            return 'CRITICAL'
+
+if __name__ == '__main__':
+    rospy.init_node('system_health_monitor')
+    
+    monitor = SystemHealthMonitor()
+    
+    rate = rospy.Rate(0.1)  # 10 second intervals
+    
+    while not rospy.is_shutdown():
+        try:
+            health_status = monitor.publish_health_status()
+            rospy.loginfo(f"System health: {health_status}")
+        except Exception as e:
+            rospy.logerr(f"Health monitoring error: {e}")
+        
+        rate.sleep()
+```
+
+This comprehensive deployment configuration provides a complete cross-platform development and deployment workflow, from macOS development through to production robot deployment, with robust monitoring and maintenance capabilities.

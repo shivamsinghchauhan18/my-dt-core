@@ -63,8 +63,8 @@
     - Create integration tests for complete AprilTag stop sequence using existing test framework
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6_
 
-- [ ] 4. Add YOLOv5 object detection to existing vehicle_detection package
-  - [ ] 4.1 Extend vehicle_detection with YOLO-based object detector
+- [-] 4. Add YOLOv5 object detection to existing vehicle_detection package
+  - [x] 4.1 Extend vehicle_detection with YOLO-based object detector
     - Modify packages/vehicle_detection/src/ to add OptimizedYOLODetector class with TensorRT support
     - Enhance existing vehicle detection with custom Duckietown object classes (duckies, robots, cones)
     - Add performance monitoring and inference time tracking to existing detection pipeline
@@ -73,7 +73,7 @@
     - Create unit tests in packages/vehicle_detection/tests/ for YOLO detection accuracy
     - _Requirements: 3.1, 3.6_
   
-  - [ ] 4.2 Add risk assessment to existing navigation package
+  - [x] 4.2 Add risk assessment to existing navigation package
     - Extend packages/navigation/src/ with RiskAssessmentEngine for collision prediction
     - Enhance existing obstacle avoidance with multi-factor risk calculation (distance, velocity, object type)
     - Add trajectory intersection prediction using existing ground_projection utilities

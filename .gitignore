@@ -9,3 +9,15 @@ out
 
 # otherwise CI thinks index not clean
 *.resolved
+.vscode/
+.kiro/
+
+# build
+build/
+devel/
+*.pyc
+__pycache__/
+
+# models / data
+*.pth
+*.zip

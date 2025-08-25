@@ -1,0 +1,57 @@
+# Enhanced Navigation Node Configuration
+# Risk Assessment and Collision Avoidance Parameters
+
+# Risk Assessment Configuration
+risk_assessment_enabled: true
+risk_update_frequency: 10.0  # Hz - How often to perform risk assessment
+monitoring_enabled: true     # Enable comprehensive logging and monitoring
+performance_logging: true    # Enable performance metrics logging
+
+# Risk Level Thresholds
+emergency_stop_threshold: "CRITICAL"  # Risk level that triggers emergency stop (LOW, MEDIUM, HIGH, CRITICAL)
+avoidance_threshold: "HIGH"          # Risk level that triggers avoidance behavior
+
+# Distance-based Risk Parameters
+safe_distance_threshold: 0.5      # meters - Distance considered safe
+warning_distance_threshold: 1.0   # meters - Distance that triggers warnings
+critical_distance_threshold: 0.3  # meters - Distance that triggers critical risk
+max_assessment_distance: 5.0      # meters - Maximum distance for risk assessment
+
+# Time-to-Collision Parameters
+critical_ttc_threshold: 1.0   # seconds - TTC that triggers critical risk
+warning_ttc_threshold: 3.0    # seconds - TTC that triggers warning risk
+
+# Object Type Risk Weights
+object_risk_weights:
+  duckiebot: 0.8
+  duckie: 0.3
+  cone: 0.6
+  barrier: 0.9
+  person: 1.0
+  vehicle: 0.9
+  unknown: 0.5
+
+# Velocity Risk Parameters
+velocity_risk_threshold: 0.5  # m/s - Velocity that increases risk
+max_velocity_risk: 2.0        # m/s - Maximum velocity for risk calculation
+
+# Trajectory Prediction Parameters
+prediction_horizon: 5.0       # seconds - How far ahead to predict trajectories
+trajectory_samples: 50        # Number of samples for trajectory prediction
+
+# Safety Margins
+lateral_safety_margin: 0.4    # meters - Required lateral clearance
+longitudinal_safety_margin: 0.6  # meters - Required longitudinal clearance
+
+# Performance Monitoring
+log_level: "INFO"             # ROS log level (DEBUG, INFO, WARN, ERROR)
+max_log_rate: 10.0           # Hz - Maximum rate for detailed logging
+
+# Emergency Response
+emergency_stop_timeout: 5.0   # seconds - How long to maintain emergency stop
+recovery_check_interval: 1.0  # seconds - How often to check for recovery conditions
+
+# Avoidance Behavior Parameters
+avoidance_speed_factor: 0.5   # Factor to reduce speed during avoidance (0.0-1.0)
+avoidance_duration: 2.0       # seconds - Minimum duration for avoidance behavior
+avoidance_recovery_margin: 1.5  # Factor for safety margin during recovery
