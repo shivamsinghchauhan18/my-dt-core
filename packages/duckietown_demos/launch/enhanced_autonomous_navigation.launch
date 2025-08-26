@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8"?>
+<launch>
+    <!-- Enhanced Autonomous Navigation with YOLO Detection and Avoidance -->
+    <!-- Integrates object detection, risk assessment, and collision avoidance -->
+    
+    <arg name="veh" default="$(env VEHICLE_NAME)" doc="Name of vehicle"/>
+    <arg name="demo_name" value="enhanced_autonomous_navigation"/>
+    <arg name="config" default="baseline" doc="Configuration mode (baseline/debug/performance)"/>
+    <arg name="enable_yolo" default="true" doc="Enable YOLO object detection"/>
+    <arg name="enable_avoidance" default="true" doc="Enable collision avoidance"/>
+    <arg name="enable_monitoring" default="true" doc="Enable comprehensive monitoring"/>
+    <arg name="model_path" default="yolov5s.pt" doc="Path to YOLO model"/>
+    <arg name="confidence_threshold" default="0.6" doc="YOLO confidence threshold"/>
+    
+    <!-- Include base enhanced lane following system -->
+    <include file="$(find duckietown_demos)/launch/enhanced_lane_following.launch">
+        <arg name="veh" value="$(arg veh)"/>
+    </include>
+    
+    <!-- YOLO Object Detection System -->
+    <group ns="$(arg veh)" if="$(arg enable_yolo)">
+        <include file="$(find vehicle_detection)/launch/enhanced_vehicle_detection_node.launch">
+            <arg name="veh" value="$(arg veh)"/>
+            <arg name="config" value="$(arg config)"/>
+            <arg name="model_path" value="$(arg model_path)"/>
+            <arg name="confidence_threshold" value="$(arg confidence_threshold)"/>
+            <arg name="enable_debug" value="$(eval arg('config') == 'debug')"/>
+        </include>
+    </group>
+    
+    <!-- Enhanced Navigation with Risk Assessment and Avoidance -->
+    <group ns="$(arg veh)" if="$(arg enable_avoidance)">
+        <include file="$(find navigation)/launch/enhanced_navigation.launch">
+            <arg name="veh" value="$(arg veh)"/>
+            <arg name="config" value="$(arg config)"/>
+        </include>
+    </group>
+    
+    <!-- Integration Coordinator Node -->
+    <group ns="$(arg veh)">
+        <node name="integration_coordinator" 
+              pkg="duckietown_demos" 
+              type="integration_coordinator_node.py" 
+              output="screen" 
+              clear_params="true">
+            
+            <!-- Configuration parameters -->
+            <param name="enable_yolo" value="$(arg enable_yolo)"/>
+            <param name="enable_avoidance" value="$(arg enable_avoidance)"/>
+            <param name="enable_monitoring" value="$(arg enable_monitoring)"/>
+            <param name="config_mode" value="$(arg config)"/>
+            
+            <!-- Input topic remapping -->
+            <remap from="~yolo_detections" to="enhanced_vehicle_detection_node/detections"/>
+            <remap from="~navigation_command" to="enhanced_navigation_node/car_cmd"/>
+            <remap from="~risk_assessment" to="enhanced_navigation_node/risk_status"/>
+            <remap from="~lane_pose" to="lane_filter_node/lane_pose"/>
+            <remap from="~emergency_stop" to="enhanced_navigation_node/emergency_stop"/>
+            
+            <!-- Output topic remapping -->
+            <remap from="~integrated_car_cmd" to="car_cmd_switch_node/cmd"/>
+            <remap from="~system_status" to="integration_coordinator/system_status"/>
+            <remap from="~performance_metrics" to="integration_coordinator/performance"/>
+            <remap from="~coordination_log" to="integration_coordinator/coordination_log"/>
+        </node>
+    </group>
+    
+    <!-- System Monitoring and Logging -->
+    <group ns="$(arg veh)" if="$(arg enable_monitoring)">
+        <!-- Performance Monitor -->
+        <node name="system_performance_monitor" 
+              pkg="duckietown_demos" 
+              type="system_performance_monitor.py" 
+              output="screen">
+            
+            <!-- Monitor all key system topics -->
+            <remap from="~yolo_performance" to="enhanced_vehicle_detection_node/performance_status"/>
+            <remap from="~navigation_performance" to="enhanced_navigation_node/performance"/>
+            <remap from="~integration_performance" to="integration_coordinator/performance"/>
+            <remap from="~system_health" to="system_performance_monitor/health_status"/>
+        </node>
+        
+        <!-- Data Logger for Analysis -->
+        <node name="integration_data_logger" 
+              pkg="duckietown_demos" 
+              type="integration_data_logger.py" 
+              output="screen"
+              if="$(eval arg('config') == 'debug')">
+            
+            <!-- Log all integration data -->
+            <remap from="~detections" to="enhanced_vehicle_detection_node/detections"/>
+            <remap from="~risk_status" to="enhanced_navigation_node/risk_status"/>
+            <remap from="~coordination_decisions" to="integration_coordinator/coordination_log"/>
+            <remap from="~system_status" to="integration_coordinator/system_status"/>
+        </node>
+    </group>
+    
+    <!-- Debug Visualization (only in debug mode) -->
+    <group ns="$(arg veh)" if="$(eval arg('config') == 'debug')">
+        <!-- RQT Console for monitoring logs -->
+        <node name="rqt_console" pkg="rqt_console" type="rqt_console" 
+              args="--force-discover" if="$(eval arg('enable_monitoring') == 'true')"/>
+        
+        <!-- Topic monitoring -->
+        <node name="detection_monitor" pkg="rostopic" type="rostopic" 
+              args="hz /$(arg veh)/enhanced_vehicle_detection_node/detections" output="screen"/>
+        <node name="risk_monitor" pkg="rostopic" type="rostopic" 
+              args="hz /$(arg veh)/enhanced_navigation_node/risk_status" output="screen"/>
+        <node name="coordination_monitor" pkg="rostopic" type="rostopic" 
+              args="hz /$(arg veh)/integration_coordinator/system_status" output="screen"/>
+    </group>
+    
+    <!-- Emergency Stop Override (always available) -->
+    <group ns="$(arg veh)">
+        <node name="emergency_stop_override" 
+              pkg="duckietown_demos" 
+              type="emergency_stop_override.py" 
+              output="screen">
+            
+            <!-- Monitor emergency conditions from all sources -->
+            <remap from="~navigation_emergency" to="enhanced_navigation_node/emergency_stop"/>
+            <remap from="~safety_emergency" to="fsm_node/emergency_stop"/>
+            <remap from="~manual_emergency" to="joy_mapper_node/emergency_stop"/>
+            
+            <!-- Override all motor commands in emergency -->
+            <remap from="~emergency_cmd" to="wheels_driver_node/emergency_stop"/>
+        </node>
+    </group>
+    
+    <!-- Logging Configuration -->
+    <env name="ROSCONSOLE_CONFIG_FILE" value="$(find duckietown_demos)/config/enhanced_autonomous_navigation_logging.conf"/>
+    
+</launch>

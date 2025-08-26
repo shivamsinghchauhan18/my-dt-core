@@ -1,0 +1,236 @@
+# Performance Optimization Configuration
+# Configuration for enhanced performance profiling, dynamic quality adjustment,
+# and resource optimization systems
+
+# Enhanced Performance Profiler Configuration
+enhanced_performance_profiler:
+  profiling_frequency: 1.0  # Hz
+  profile_history_size: 1000
+  bottleneck_detection_window: 30  # seconds
+  raspberry_pi_mode: true
+  
+  # Performance thresholds for Raspberry Pi
+  thresholds:
+    cpu_bottleneck_threshold: 85.0  # %
+    memory_bottleneck_threshold: 80.0  # %
+    latency_bottleneck_threshold: 300.0  # ms
+    fps_bottleneck_threshold: 15.0  # fps
+  
+  # Easy logs integration
+  easy_logs_integration: true
+  easy_logs_interval: 30.0  # seconds
+
+# Dynamic Quality Adjuster Configuration
+dynamic_quality_adjuster:
+  adjustment_frequency: 2.0  # Hz
+  raspberry_pi_mode: true
+  target_fps: 20.0
+  min_fps: 10.0
+  max_fps: 30.0
+  
+  # Quality adjustment parameters
+  aggressive_adjustment: true
+  adjustment_smoothing: 0.7  # 0-1, higher = more smoothing
+  quality_hysteresis: 0.1  # Prevent oscillation
+  
+  # Quality levels and thresholds
+  quality_levels:
+    ultra_low: 0.2
+    low: 0.4
+    medium: 0.6
+    high: 0.8
+    ultra_high: 1.0
+  
+  # Resource pressure thresholds (Raspberry Pi)
+  resource_thresholds:
+    cpu:
+      none: 50
+      low: 65
+      medium: 80
+      high: 90
+      critical: 95
+    memory:
+      none: 60
+      low: 75
+      medium: 85
+      high: 95
+      critical: 98
+    temperature:
+      none: 60
+      low: 70
+      medium: 75
+      high: 80
+      critical: 85
+
+# Performance Alerting System Configuration
+performance_alerting_system:
+  monitoring_frequency: 2.0  # Hz
+  alert_retention_hours: 24
+  escalation_enabled: true
+  email_notifications: false  # Set to true and configure SMTP for email alerts
+  raspberry_pi_mode: true
+  
+  # Email configuration (if enabled)
+  email:
+    smtp_server: "smtp.gmail.com"
+    smtp_port: 587
+    username: ""  # Configure with actual email
+    password: ""  # Configure with actual password
+    recipients: []  # List of email addresses
+  
+  # Alert thresholds (Raspberry Pi optimized)
+  thresholds:
+    cpu_percent:
+      warning: 75.0
+      critical: 90.0
+      emergency: 98.0
+      duration_seconds: 5.0
+    
+    memory_percent:
+      warning: 70.0
+      critical: 85.0
+      emergency: 95.0
+      duration_seconds: 10.0
+    
+    temperature_celsius:
+      warning: 70.0
+      critical: 80.0
+      emergency: 85.0
+      duration_seconds: 30.0
+    
+    processing_fps:
+      warning: 15.0
+      critical: 10.0
+      emergency: 5.0
+      duration_seconds: 15.0
+      comparison: "<"  # Less than threshold
+    
+    latency_ms:
+      warning: 250.0
+      critical: 400.0
+      emergency: 1000.0
+      duration_seconds: 10.0
+    
+    queue_depth:
+      warning: 10.0
+      critical: 20.0
+      emergency: 50.0
+      duration_seconds: 20.0
+    
+    error_rate:
+      warning: 0.05  # 5%
+      critical: 0.15  # 15%
+      emergency: 0.30  # 30%
+      duration_seconds: 30.0
+    
+    system_efficiency:
+      warning: 0.7
+      critical: 0.5
+      emergency: 0.3
+      duration_seconds: 60.0
+      comparison: "<"  # Less than threshold
+  
+  # Escalation rules
+  escalation:
+    warning:
+      escalate_after_minutes: 10
+      max_level: 2
+    critical:
+      escalate_after_minutes: 5
+      max_level: 3
+    emergency:
+      escalate_after_minutes: 1
+      max_level: 5
+
+# Resource Optimization Utils Configuration
+resource_optimization_utils:
+  raspberry_pi_mode: true
+  optimization_interval: 30.0  # seconds
+  memory_threshold_mb: 1024  # 1GB for Raspberry Pi
+  cpu_threshold_percent: 80.0
+  enable_aggressive_optimization: true
+  
+  # Memory pool configuration
+  memory_pools:
+    # Buffer size: pool size
+    921600: 5    # VGA RGB (640x480x3)
+    230400: 5    # QVGA RGB (320x240x3)
+    57600: 10    # Thumbnail RGB (160x120x3)
+    307200: 5    # VGA grayscale (640x480)
+    76800: 5     # QVGA grayscale (320x240)
+    1048576: 3   # 1MB general purpose
+    524288: 5    # 512KB general purpose
+    262144: 10   # 256KB general purpose
+  
+  # Cache configuration
+  cache:
+    max_size: 50
+    max_age_seconds: 300.0  # 5 minutes
+  
+  # CPU optimization
+  cpu_optimization:
+    enable_affinity_optimization: true
+    enable_priority_adjustment: true
+    raspberry_pi_4_cores: [2, 3]  # Preferred cores for RPi 4
+    raspberry_pi_3_cores: [0, 1]  # Preferred cores for RPi 3
+
+# System Integration Configuration
+system_integration:
+  # Component priorities (1-10, higher = more important)
+  component_priorities:
+    lane_detection: 9
+    apriltag_detection: 8
+    object_detection: 7
+    navigation: 8
+    safety_monitor: 10
+    coordination: 6
+  
+  # Performance targets per component
+  performance_targets:
+    lane_detection:
+      target_fps: 20.0
+      max_latency_ms: 150.0
+      max_cpu_percent: 25.0
+      max_memory_mb: 256.0
+    
+    apriltag_detection:
+      target_fps: 15.0
+      max_latency_ms: 200.0
+      max_cpu_percent: 20.0
+      max_memory_mb: 128.0
+    
+    object_detection:
+      target_fps: 10.0
+      max_latency_ms: 300.0
+      max_cpu_percent: 35.0
+      max_memory_mb: 512.0
+    
+    navigation:
+      target_fps: 20.0
+      max_latency_ms: 100.0
+      max_cpu_percent: 15.0
+      max_memory_mb: 128.0
+    
+    safety_monitor:
+      target_fps: 5.0
+      max_latency_ms: 50.0
+      max_cpu_percent: 10.0
+      max_memory_mb: 64.0
+
+# Logging Configuration
+logging:
+  # Log levels: DEBUG, INFO, WARN, ERROR
+  performance_profiler_level: "INFO"
+  quality_adjuster_level: "INFO"
+  alerting_system_level: "INFO"
+  resource_optimizer_level: "INFO"
+  
+  # Enable comprehensive debug logging
+  enable_debug_logging: false
+  
+  # Enable real-time monitoring logs
+  enable_monitoring_logs: true
+  
+  # Log file rotation
+  max_log_size_mb: 100
+  max_log_files: 5

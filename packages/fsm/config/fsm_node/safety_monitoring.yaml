@@ -1,0 +1,57 @@
+# Safety Monitoring Configuration for FSM
+
+# Safety monitoring system parameters
+enable_safety_monitoring: true
+emergency_stop_timeout: 0.2  # Emergency response time (seconds)
+safety_check_frequency: 1.0  # Safety monitoring frequency (Hz)
+
+# Hardware health thresholds
+cpu_temp_warning: 70.0      # CPU temperature warning threshold (°C)
+cpu_temp_critical: 85.0     # CPU temperature critical threshold (°C)
+memory_warning: 80.0        # Memory usage warning threshold (%)
+memory_critical: 95.0       # Memory usage critical threshold (%)
+
+# Sensor health thresholds
+sensor_timeout: 2.0         # Sensor timeout threshold (seconds)
+camera_fps_warning: 20.0    # Camera FPS warning threshold
+camera_fps_critical: 10.0   # Camera FPS critical threshold
+
+# Algorithm performance thresholds
+algorithm_fps_warning: 15.0    # Algorithm FPS warning threshold
+algorithm_fps_critical: 10.0   # Algorithm FPS critical threshold
+lane_confidence_warning: 0.5   # Lane detection confidence warning threshold
+lane_confidence_critical: 0.3  # Lane detection confidence critical threshold
+control_freq_warning: 15.0     # Control loop frequency warning threshold (Hz)
+control_freq_critical: 10.0    # Control loop frequency critical threshold (Hz)
+
+# Safety state transition parameters
+emergency_state_timeout: 30.0     # Maximum time in emergency state (seconds)
+critical_state_timeout: 60.0      # Maximum time in critical state (seconds)
+recovery_confirmation_time: 5.0   # Time to confirm recovery (seconds)
+safety_violation_threshold: 3     # Number of violations before emergency
+
+# System health scoring
+health_score_weights:
+  hardware: 0.3    # Hardware health weight
+  sensors: 0.3     # Sensor health weight
+  algorithms: 0.2  # Algorithm performance weight
+  behavioral: 0.2  # Behavioral safety weight
+
+# Emergency response integration
+emergency_led_patterns: true      # Enable emergency LED patterns
+emergency_motor_stop: true        # Enable emergency motor stop
+emergency_logging: true           # Enable emergency event logging
+emergency_recovery_auto: true     # Enable automatic recovery
+
+# Safety monitoring topics
+safety_status_topic: "~safety_status"
+emergency_stop_topic: "/emergency_stop"
+motor_cmd_topic: "/car_cmd"
+camera_topic: "/camera_node/image/raw"
+imu_topic: "/imu_node/data"
+
+# Logging and debugging
+safety_debug_logging: false       # Enable debug logging
+performance_monitoring: true      # Enable performance monitoring
+safety_event_logging: true        # Enable safety event logging
+system_health_reporting: true     # Enable system health reporting

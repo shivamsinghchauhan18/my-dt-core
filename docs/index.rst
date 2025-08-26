@@ -11,6 +11,7 @@ Welcome to dt-core documentation!
    :maxdepth: 1
    :caption: Contents:
 
+   development_environment
    packages
 
 

@@ -1,13 +1,357 @@
 #!/usr/bin/env python3
 import time
+import threading
 import rospy
 
 from duckietown_msgs.srv import SetCustomLEDPattern, ChangePattern
 from duckietown_msgs.srv import SetCustomLEDPatternResponse, ChangePatternResponse
-from duckietown_msgs.msg import LEDPattern
-from std_msgs.msg import ColorRGBA
+from duckietown_msgs.msg import LEDPattern, SafetyStatus
+from std_msgs.msg import ColorRGBA, Bool
+from geometry_msgs.msg import Twist
 
 from duckietown.dtros import DTROS, TopicType, NodeType
+
+
+class EmergencyResponseSystem:
+    """
+    Emergency response system for LED-based warning patterns and motor control integration.
+    Provides safety-specific LED patterns and emergency stop capabilities.
+    """
+    
+    def __init__(self, led_emitter_node):
+        self.led_emitter = led_emitter_node
+        self.node_name = led_emitter_node.node_name
+        
+        # Emergency response parameters
+        self.emergency_response_enabled = rospy.get_param("~emergency_response_enabled", True)
+        self.emergency_pattern_priority = rospy.get_param("~emergency_pattern_priority", 100)
+        self.warning_pattern_duration = rospy.get_param("~warning_pattern_duration", 5.0)  # seconds
+        self.critical_pattern_duration = rospy.get_param("~critical_pattern_duration", 10.0)  # seconds
+        self.emergency_motor_stop_timeout = rospy.get_param("~emergency_motor_stop_timeout", 0.2)  # seconds
+        
+        # Emergency state tracking
+        self.current_emergency_level = SafetyStatus.SAFE
+        self.emergency_pattern_active = False
+        self.emergency_start_time = None
+        self.last_safety_status = None
+        self.motor_stop_active = False
+        self.emergency_pattern_count = 0
+        self.warning_pattern_count = 0
+        self.critical_pattern_count = 0
+        
+        # Pattern timing control
+        self.pattern_lock = threading.Lock()
+        self.emergency_timer = None
+        self.last_pattern_change = time.time()
+        
+        rospy.loginfo(f"[{self.node_name}] Emergency Response System initialized")
+        rospy.loginfo(f"[{self.node_name}] Emergency response enabled: {self.emergency_response_enabled}")
+        rospy.loginfo(f"[{self.node_name}] Emergency pattern priority: {self.emergency_pattern_priority}")
+        rospy.loginfo(f"[{self.node_name}] Warning/Critical pattern durations: {self.warning_pattern_duration}s/{self.critical_pattern_duration}s")
+        rospy.loginfo(f"[{self.node_name}] Emergency motor stop timeout: {self.emergency_motor_stop_timeout}s")
+        
+        # Motor control integration
+        self.motor_stop_publisher = rospy.Publisher(
+            "/emergency_stop", Bool, queue_size=1
+        )
+        self.motor_cmd_publisher = rospy.Publisher(
+            "/car_cmd", Twist, queue_size=1
+        )
+        
+        # Safety status subscriber
+        self.safety_status_subscriber = rospy.Subscriber(
+            "/fsm_node/safety_status", SafetyStatus, self.cb_safety_status
+        )
+        
+        rospy.loginfo(f"[{self.node_name}] Emergency response motor control and safety monitoring initialized")
+    
+    def cb_safety_status(self, msg):
+        """
+        Callback for safety status updates to trigger appropriate emergency responses.
+        
+        Args:
+            msg: SafetyStatus message
+        """
+        if not self.emergency_response_enabled:
+            return
+        
+        self.last_safety_status = msg
+        previous_level = self.current_emergency_level
+        self.current_emergency_level = msg.safety_level
+        
+        rospy.logdebug(f"[{self.node_name}] Safety status update: Level={msg.safety_level}, Score={msg.system_health_score:.1f}")
+        
+        # Handle emergency level changes
+        if msg.safety_level != previous_level:
+            rospy.loginfo(f"[{self.node_name}] Emergency level change: {previous_level} -> {msg.safety_level}")
+            self._handle_emergency_level_change(msg)
+        
+        # Handle specific emergency conditions
+        if msg.safety_level == SafetyStatus.EMERGENCY:
+            self._handle_emergency_response(msg)
+        elif msg.safety_level == SafetyStatus.CRITICAL:
+            self._handle_critical_response(msg)
+        elif msg.safety_level == SafetyStatus.WARNING:
+            self._handle_warning_response(msg)
+        elif msg.safety_level == SafetyStatus.SAFE and self.emergency_pattern_active:
+            self._handle_recovery_response(msg)
+        
+        # Real-time monitoring
+        rospy.logdebug(f"[{self.node_name}] Emergency response event: Level={msg.safety_level}, Pattern active={self.emergency_pattern_active}")
+    
+    def _handle_emergency_level_change(self, safety_status):
+        """Handle emergency level changes with appropriate logging and pattern transitions."""
+        current_time = time.time()
+        self.last_pattern_change = current_time
+        
+        rospy.loginfo(f"[{self.node_name}] Emergency level change detected at {rospy.Time.now()}")
+        rospy.loginfo(f"[{self.node_name}] System health score: {safety_status.system_health_score:.1f}")
+        rospy.loginfo(f"[{self.node_name}] Active warnings: {len(safety_status.active_warnings)}")
+        
+        # Log pattern timing
+        if self.emergency_start_time:
+            pattern_duration = current_time - self.emergency_start_time
+            rospy.loginfo(f"[{self.node_name}] Previous pattern duration: {pattern_duration:.3f}s")
+        
+        # Real-time monitoring
+        rospy.logdebug(f"[{self.node_name}] Pattern change event: Timestamp={rospy.Time.now()}, Duration since last change={current_time - self.last_pattern_change:.3f}s")
+    
+    def _handle_emergency_response(self, safety_status):
+        """Handle emergency safety conditions with immediate response."""
+        if not self.emergency_pattern_active or self.current_emergency_level != SafetyStatus.EMERGENCY:
+            self.emergency_pattern_count += 1
+            self.emergency_start_time = time.time()
+            
+            rospy.logwarn(f"[{self.node_name}] EMERGENCY RESPONSE ACTIVATED!")
+            rospy.logwarn(f"[{self.node_name}] Emergency reason: {safety_status.emergency_reason}")
+            rospy.logwarn(f"[{self.node_name}] Emergency pattern activations: {self.emergency_pattern_count}")
+            
+            # Activate emergency LED pattern
+            self._activate_emergency_pattern("EMERGENCY_STOP")
+            
+            # Execute emergency motor stop
+            self._execute_emergency_motor_stop(safety_status.emergency_reason)
+            
+            # Log emergency response activation with timestamp
+            rospy.logwarn(f"[{self.node_name}] Emergency response activated at {rospy.Time.now()}")
+            rospy.logwarn(f"[{self.node_name}] Response time: {self.emergency_motor_stop_timeout}s")
+        
+        # Real-time monitoring
+        rospy.logdebug(f"[{self.node_name}] Emergency response event: Motor stop active={self.motor_stop_active}, Pattern active={self.emergency_pattern_active}")
+    
+    def _handle_critical_response(self, safety_status):
+        """Handle critical safety conditions with warning patterns."""
+        if not self.emergency_pattern_active or self.current_emergency_level != SafetyStatus.CRITICAL:
+            self.critical_pattern_count += 1
+            self.emergency_start_time = time.time()
+            
+            rospy.logwarn(f"[{self.node_name}] CRITICAL RESPONSE ACTIVATED!")
+            rospy.logwarn(f"[{self.node_name}] System health score: {safety_status.system_health_score:.1f}")
+            rospy.logwarn(f"[{self.node_name}] Critical pattern activations: {self.critical_pattern_count}")
+            
+            # Activate critical LED pattern
+            self._activate_emergency_pattern("CRITICAL_WARNING")
+            
+            # Schedule pattern duration
+            self._schedule_pattern_timeout(self.critical_pattern_duration)
+            
+            # Log critical response activation
+            rospy.logwarn(f"[{self.node_name}] Critical response activated at {rospy.Time.now()}")
+            rospy.logwarn(f"[{self.node_name}] Pattern duration: {self.critical_pattern_duration}s")
+        
+        # Real-time monitoring
+        rospy.logdebug(f"[{self.node_name}] Critical response event: Pattern duration={self.critical_pattern_duration}s, Health score={safety_status.system_health_score:.1f}")
+    
+    def _handle_warning_response(self, safety_status):
+        """Handle warning safety conditions with attention patterns."""
+        if not self.emergency_pattern_active or self.current_emergency_level != SafetyStatus.WARNING:
+            self.warning_pattern_count += 1
+            self.emergency_start_time = time.time()
+            
+            rospy.logwarn(f"[{self.node_name}] WARNING RESPONSE ACTIVATED!")
+            rospy.logwarn(f"[{self.node_name}] System health score: {safety_status.system_health_score:.1f}")
+            rospy.logwarn(f"[{self.node_name}] Warning pattern activations: {self.warning_pattern_count}")
+            
+            # Activate warning LED pattern
+            self._activate_emergency_pattern("SAFETY_WARNING")
+            
+            # Schedule pattern duration
+            self._schedule_pattern_timeout(self.warning_pattern_duration)
+            
+            # Log warning response activation
+            rospy.logwarn(f"[{self.node_name}] Warning response activated at {rospy.Time.now()}")
+            rospy.logwarn(f"[{self.node_name}] Pattern duration: {self.warning_pattern_duration}s")
+        
+        # Real-time monitoring
+        rospy.logdebug(f"[{self.node_name}] Warning response event: Pattern duration={self.warning_pattern_duration}s, Active warnings={len(safety_status.active_warnings)}")
+    
+    def _handle_recovery_response(self, safety_status):
+        """Handle recovery from emergency conditions."""
+        if self.emergency_pattern_active:
+            recovery_time = time.time() - self.emergency_start_time if self.emergency_start_time else 0.0
+            
+            rospy.loginfo(f"[{self.node_name}] EMERGENCY RECOVERY!")
+            rospy.loginfo(f"[{self.node_name}] Recovery time: {recovery_time:.3f}s")
+            rospy.loginfo(f"[{self.node_name}] System health score: {safety_status.system_health_score:.1f}")
+            
+            # Deactivate emergency patterns
+            self._deactivate_emergency_pattern()
+            
+            # Clear motor stop if active
+            if self.motor_stop_active:
+                self._clear_emergency_motor_stop()
+            
+            # Log recovery with timestamp
+            rospy.loginfo(f"[{self.node_name}] Emergency recovery completed at {rospy.Time.now()}")
+        
+        # Real-time monitoring
+        rospy.logdebug(f"[{self.node_name}] Recovery event: Pattern deactivated, Motor stop cleared")
+    
+    def _activate_emergency_pattern(self, pattern_name):
+        """Activate emergency LED pattern with priority override."""
+        with self.pattern_lock:
+            self.emergency_pattern_active = True
+            
+            rospy.loginfo(f"[{self.node_name}] Activating emergency pattern: {pattern_name}")
+            rospy.loginfo(f"[{self.node_name}] Pattern priority: {self.emergency_pattern_priority}")
+            
+            # Change to emergency pattern
+            self.led_emitter.changePattern(pattern_name)
+            
+            # Log pattern activation with timing
+            rospy.logdebug(f"[{self.node_name}] Emergency pattern activated: {pattern_name} at {rospy.Time.now()}")
+            
+            # Real-time monitoring
+            rospy.logdebug(f"[{self.node_name}] Pattern activation event: Name={pattern_name}, Priority={self.emergency_pattern_priority}")
+    
+    def _deactivate_emergency_pattern(self):
+        """Deactivate emergency LED pattern and return to normal operation."""
+        with self.pattern_lock:
+            if self.emergency_pattern_active:
+                pattern_duration = time.time() - self.emergency_start_time if self.emergency_start_time else 0.0
+                
+                rospy.loginfo(f"[{self.node_name}] Deactivating emergency pattern")
+                rospy.loginfo(f"[{self.node_name}] Total pattern duration: {pattern_duration:.3f}s")
+                
+                self.emergency_pattern_active = False
+                self.emergency_start_time = None
+                
+                # Cancel any active timer
+                if self.emergency_timer:
+                    self.emergency_timer.shutdown()
+                    self.emergency_timer = None
+                
+                # Return to normal pattern
+                self.led_emitter.changePattern("CAR_DRIVING")
+                
+                # Log pattern deactivation
+                rospy.loginfo(f"[{self.node_name}] Emergency pattern deactivated at {rospy.Time.now()}")
+                
+                # Real-time monitoring
+                rospy.logdebug(f"[{self.node_name}] Pattern deactivation event: Duration={pattern_duration:.3f}s")
+    
+    def _schedule_pattern_timeout(self, duration):
+        """Schedule automatic pattern timeout for warning and critical patterns."""
+        if self.emergency_timer:
+            self.emergency_timer.shutdown()
+        
+        self.emergency_timer = rospy.Timer(
+            rospy.Duration(duration),
+            self._pattern_timeout_callback,
+            oneshot=True
+        )
+        
+        rospy.logdebug(f"[{self.node_name}] Pattern timeout scheduled: {duration}s")
+    
+    def _pattern_timeout_callback(self, event):
+        """Callback for pattern timeout."""
+        rospy.loginfo(f"[{self.node_name}] Emergency pattern timeout reached")
+        
+        # Only deactivate if we're not in emergency state
+        if self.current_emergency_level != SafetyStatus.EMERGENCY:
+            self._deactivate_emergency_pattern()
+        
+        # Real-time monitoring
+        rospy.logdebug(f"[{self.node_name}] Pattern timeout event: Emergency level={self.current_emergency_level}")
+    
+    def _execute_emergency_motor_stop(self, reason):
+        """Execute emergency motor stop with immediate effect."""
+        if self.motor_stop_active:
+            return
+        
+        self.motor_stop_active = True
+        
+        rospy.logwarn(f"[{self.node_name}] EXECUTING EMERGENCY MOTOR STOP!")
+        rospy.logwarn(f"[{self.node_name}] Stop reason: {reason}")
+        rospy.logwarn(f"[{self.node_name}] Stop timeout: {self.emergency_motor_stop_timeout}s")
+        
+        # Publish emergency stop signal
+        emergency_stop_msg = Bool()
+        emergency_stop_msg.data = True
+        self.motor_stop_publisher.publish(emergency_stop_msg)
+        
+        # Send zero velocity command
+        stop_cmd = Twist()
+        stop_cmd.linear.x = 0.0
+        stop_cmd.angular.z = 0.0
+        self.motor_cmd_publisher.publish(stop_cmd)
+        
+        # Log motor stop command with timestamp
+        rospy.logwarn(f"[{self.node_name}] Emergency motor stop executed at {rospy.Time.now()}")
+        
+        # Real-time monitoring
+        rospy.logdebug(f"[{self.node_name}] Motor stop event: Reason={reason}, Timeout={self.emergency_motor_stop_timeout}s")
+    
+    def _clear_emergency_motor_stop(self):
+        """Clear emergency motor stop condition."""
+        if not self.motor_stop_active:
+            return
+        
+        rospy.loginfo(f"[{self.node_name}] Clearing emergency motor stop")
+        
+        self.motor_stop_active = False
+        
+        # Publish emergency stop clear signal
+        emergency_stop_msg = Bool()
+        emergency_stop_msg.data = False
+        self.motor_stop_publisher.publish(emergency_stop_msg)
+        
+        # Log motor stop clear
+        rospy.loginfo(f"[{self.node_name}] Emergency motor stop cleared at {rospy.Time.now()}")
+        
+        # Real-time monitoring
+        rospy.logdebug(f"[{self.node_name}] Motor stop clear event: Recovery completed")
+    
+    def get_emergency_status(self):
+        """Get current emergency response status."""
+        return {
+            "emergency_level": self.current_emergency_level,
+            "pattern_active": self.emergency_pattern_active,
+            "motor_stop_active": self.motor_stop_active,
+            "emergency_count": self.emergency_pattern_count,
+            "warning_count": self.warning_pattern_count,
+            "critical_count": self.critical_pattern_count
+        }
+    
+    def shutdown(self):
+        """Shutdown emergency response system."""
+        rospy.loginfo(f"[{self.node_name}] Shutting down Emergency Response System")
+        
+        # Clear any active emergency patterns
+        if self.emergency_pattern_active:
+            self._deactivate_emergency_pattern()
+        
+        # Clear motor stop
+        if self.motor_stop_active:
+            self._clear_emergency_motor_stop()
+        
+        # Log final statistics
+        rospy.loginfo(f"[{self.node_name}] Emergency response statistics:")
+        rospy.loginfo(f"[{self.node_name}] Emergency patterns: {self.emergency_pattern_count}")
+        rospy.loginfo(f"[{self.node_name}] Critical patterns: {self.critical_pattern_count}")
+        rospy.loginfo(f"[{self.node_name}] Warning patterns: {self.warning_pattern_count}")
+        
+        rospy.loginfo(f"[{self.node_name}] Emergency Response System shutdown complete")
 
 
 class LEDEmitterNode(DTROS):
@@ -116,6 +460,15 @@ class LEDEmitterNode(DTROS):
         self.frequency_mask = [0] * 5
         self.current_pattern_name = "LIGHT_OFF"
         self.changePattern(self.current_pattern_name)
+        
+        # Initialize Emergency Response System
+        self.emergency_response = EmergencyResponseSystem(self)
+        
+        # Initialize Intention Signaler for lane change communication
+        from intention_signaler import IntentionSignaler
+        self.intention_signaler = IntentionSignaler(self)
+        
+        rospy.loginfo(f"[{self.node_name}] LED Emitter with Emergency Response System and Intention Signaler initialized")
 
         # Initialize the timer
         self.frequency = 1.0 / self._LED_protocol["signals"]["CAR_SIGNAL_A"]["frequency"]
@@ -378,8 +731,16 @@ class LEDEmitterNode(DTROS):
     def on_shutdown(self):
         """Shutdown procedure.
 
-        At shutdown, changes the LED pattern to `LIGHT_OFF`.
+        At shutdown, changes the LED pattern to `LIGHT_OFF` and cleans up emergency response system.
         """
+        # Shutdown emergency response system first
+        if hasattr(self, 'emergency_response'):
+            self.emergency_response.shutdown()
+        
+        # Shutdown intention signaler
+        if hasattr(self, 'intention_signaler'):
+            self.intention_signaler.shutdown()
+        
         # Turn off the lights when the node dies
         self.loginfo("Shutting down. Turning LEDs off.")
         self.changePattern("LIGHT_OFF")

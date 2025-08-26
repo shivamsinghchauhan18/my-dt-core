@@ -109,6 +109,31 @@ LED_protocol:
       frequency_mask: [1,1,0,1,1]
       frequency: *f2
 
+    # Emergency Response Patterns
+    EMERGENCY_STOP:
+      color_mask: []
+      color_list: "red"
+      frequency_mask: [1,1,1,1,1]
+      frequency: *f5  # Fast blinking for emergency
+
+    CRITICAL_WARNING:
+      color_mask: []
+      color_list: ["red","yellow","red","yellow","red"]
+      frequency_mask: [1,1,1,1,1]
+      frequency: *f3  # Medium blinking for critical
+
+    SAFETY_WARNING:
+      color_mask: []
+      color_list: "yellow"
+      frequency_mask: [1,1,1,1,1]
+      frequency: *f2  # Slow blinking for warning
+
+    WARNING:
+      color_mask: []
+      color_list: ["yellow","switchedoff","yellow","switchedoff","yellow"]
+      frequency_mask: [1,0,1,0,1]
+      frequency: *f1  # Alternating pattern for general warnings
+
 LED_scale: 0.8
 channel_order:
   duckiebot: "RGB"

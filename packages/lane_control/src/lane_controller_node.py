@@ -77,6 +77,56 @@ class LaneControllerNode(DTROS):
         self.params["~omega_ff"] = rospy.get_param("~omega_ff", None)
         self.params["~verbose"] = rospy.get_param("~verbose", None)
         self.params["~stop_line_slowdown"] = rospy.get_param("~stop_line_slowdown", None)
+        
+        # MPC parameters
+        self.params["~use_mpc"] = rospy.get_param("~use_mpc", False)
+        self.params["~mpc_prediction_horizon"] = rospy.get_param("~mpc_prediction_horizon", 10)
+        self.params["~mpc_control_horizon"] = rospy.get_param("~mpc_control_horizon", 5)
+        self.params["~mpc_dt"] = rospy.get_param("~mpc_dt", 0.1)
+        self.params["~mpc_max_velocity"] = rospy.get_param("~mpc_max_velocity", 0.5)
+        self.params["~mpc_max_angular_velocity"] = rospy.get_param("~mpc_max_angular_velocity", 2.0)
+        self.params["~mpc_velocity_weight"] = rospy.get_param("~mpc_velocity_weight", 1.0)
+        self.params["~mpc_angular_weight"] = rospy.get_param("~mpc_angular_weight", 1.0)
+        self.params["~mpc_lateral_weight"] = rospy.get_param("~mpc_lateral_weight", 10.0)
+        self.params["~mpc_heading_weight"] = rospy.get_param("~mpc_heading_weight", 5.0)
+        self.params["~mpc_smoothness_weight"] = rospy.get_param("~mpc_smoothness_weight", 1.0)
+        self.params["~mpc_adaptive_horizon"] = rospy.get_param("~mpc_adaptive_horizon", True)
+        
+        # Enhanced vehicle model parameters
+        self.params["~use_enhanced_vehicle_model"] = rospy.get_param("~use_enhanced_vehicle_model", True)
+        self.params["~vehicle_wheelbase"] = rospy.get_param("~vehicle_wheelbase", 0.1)
+        self.params["~vehicle_wheel_radius"] = rospy.get_param("~vehicle_wheel_radius", 0.0318)
+        self.params["~vehicle_width"] = rospy.get_param("~vehicle_width", 0.13)
+        self.params["~vehicle_length"] = rospy.get_param("~vehicle_length", 0.18)
+        self.params["~vehicle_mass"] = rospy.get_param("~vehicle_mass", 1.2)
+        self.params["~vehicle_max_linear_velocity"] = rospy.get_param("~vehicle_max_linear_velocity", 0.5)
+        self.params["~vehicle_max_angular_velocity"] = rospy.get_param("~vehicle_max_angular_velocity", 2.0)
+        self.params["~vehicle_max_linear_acceleration"] = rospy.get_param("~vehicle_max_linear_acceleration", 1.0)
+        self.params["~vehicle_max_angular_acceleration"] = rospy.get_param("~vehicle_max_angular_acceleration", 3.0)
+        self.params["~vehicle_moment_of_inertia"] = rospy.get_param("~vehicle_moment_of_inertia", 0.01)
+        self.params["~vehicle_friction_coefficient"] = rospy.get_param("~vehicle_friction_coefficient", 0.8)
+        self.params["~vehicle_drag_coefficient"] = rospy.get_param("~vehicle_drag_coefficient", 0.1)
+        self.params["~vehicle_motor_time_constant"] = rospy.get_param("~vehicle_motor_time_constant", 0.1)
+        self.params["~vehicle_motor_deadband"] = rospy.get_param("~vehicle_motor_deadband", 0.05)
+        self.params["~vehicle_motor_saturation"] = rospy.get_param("~vehicle_motor_saturation", 1.0)
+        
+        # Adaptive gain scheduling parameters
+        self.params["~use_adaptive_gains"] = rospy.get_param("~use_adaptive_gains", True)
+        self.params["~adaptive_low_speed_threshold"] = rospy.get_param("~adaptive_low_speed_threshold", 0.1)
+        self.params["~adaptive_high_speed_threshold"] = rospy.get_param("~adaptive_high_speed_threshold", 0.3)
+        self.params["~adaptive_low_speed_k_d_scale"] = rospy.get_param("~adaptive_low_speed_k_d_scale", 1.5)
+        self.params["~adaptive_low_speed_k_theta_scale"] = rospy.get_param("~adaptive_low_speed_k_theta_scale", 1.2)
+        self.params["~adaptive_high_speed_k_d_scale"] = rospy.get_param("~adaptive_high_speed_k_d_scale", 0.8)
+        self.params["~adaptive_high_speed_k_theta_scale"] = rospy.get_param("~adaptive_high_speed_k_theta_scale", 0.9)
+        self.params["~adaptive_small_error_threshold"] = rospy.get_param("~adaptive_small_error_threshold", 0.05)
+        self.params["~adaptive_large_error_threshold"] = rospy.get_param("~adaptive_large_error_threshold", 0.15)
+        self.params["~adaptive_small_error_scale"] = rospy.get_param("~adaptive_small_error_scale", 0.8)
+        self.params["~adaptive_large_error_scale"] = rospy.get_param("~adaptive_large_error_scale", 1.3)
+        self.params["~adaptive_integral_windup_threshold"] = rospy.get_param("~adaptive_integral_windup_threshold", 0.2)
+        self.params["~adaptive_integral_scale_factor"] = rospy.get_param("~adaptive_integral_scale_factor", 0.5)
+        self.params["~adaptive_adaptation_rate"] = rospy.get_param("~adaptive_adaptation_rate", 0.1)
+        self.params["~adaptive_min_gain_scale"] = rospy.get_param("~adaptive_min_gain_scale", 0.3)
+        self.params["~adaptive_max_gain_scale"] = rospy.get_param("~adaptive_max_gain_scale", 2.0)
 
         # Need to create controller object before updating parameters, otherwise it will fail
         self.controller = LaneController(self.params)
@@ -124,7 +174,13 @@ class LaneControllerNode(DTROS):
             "~obstacle_distance_reading", StopLineReading, self.cbObstacleStopLineReading, queue_size=1
         )
 
-        self.log("Initialized!")
+        # Performance monitoring
+        self.control_performance_log_time = 0.0
+        self.trajectory_predictions = []
+        self.vehicle_diagnostics_log_time = 0.0
+        self.gain_scheduling_log_time = 0.0
+        
+        self.log("Initialized! MPC enabled: %s" % self.params.get("~use_mpc", False))
 
     def cbObstacleStopLineReading(self, msg):
         """
@@ -175,6 +231,11 @@ class LaneControllerNode(DTROS):
             self.pose_msg = input_pose_msg
 
             self.getControlAction(self.pose_msg)
+        
+        # Log pose source changes
+        if self.params["~verbose"] >= 1:
+            self.log("Using pose from: %s, d=%.4f, phi=%.4f" % 
+                    (pose_source, input_pose_msg.d, input_pose_msg.phi))
 
     def cbWheelsCmdExecuted(self, msg_wheels_cmd):
         """Callback that reports if the requested control action was executed.
@@ -250,6 +311,73 @@ class LaneControllerNode(DTROS):
 
         self.publishCmd(car_control_msg)
         self.last_s = current_s
+        
+        # Comprehensive logging for predictive control
+        if self.params["~verbose"] >= 2:
+            self.log("Control computed: v=%.3f, omega=%.3f, d_err=%.4f, phi_err=%.4f, dt=%.3f" %
+                    (v, omega, d_err, phi_err, dt if dt else 0.0))
+        
+        # Log MPC performance metrics periodically
+        current_time = rospy.Time.now().to_sec()
+        if current_time - self.control_performance_log_time > 10.0:  # Every 10 seconds
+            if hasattr(self.controller, 'get_mpc_performance_metrics'):
+                metrics = self.controller.get_mpc_performance_metrics()
+                if metrics:
+                    self.log("MPC Performance: avg_time=%.2fms, convergence=%.1f%%, controls=%d" %
+                            (metrics.get('avg_optimization_time', 0) * 1000,
+                             metrics.get('convergence_rate', 0) * 100,
+                             metrics.get('total_controls', 0)))
+            self.control_performance_log_time = current_time
+        
+        # Log vehicle model diagnostics periodically
+        if current_time - self.vehicle_diagnostics_log_time > 15.0:  # Every 15 seconds
+            if hasattr(self.controller, 'get_vehicle_diagnostics'):
+                diagnostics = self.controller.get_vehicle_diagnostics()
+                if diagnostics:
+                    self.log("Vehicle Model: valid=%s, calibrated=%s, violations=%d, success_rate=%.1f%%" %
+                            (diagnostics.get('parameters_valid', False),
+                             diagnostics.get('calibration_loaded', False),
+                             diagnostics.get('recent_constraint_violations', 0),
+                             diagnostics.get('prediction_success_rate', 1.0) * 100))
+                    
+                    # Log detailed vehicle parameters
+                    if self.params["~verbose"] >= 2:
+                        self.log("Vehicle Params: wheelbase=%.3fm, wheel_radius=%.4fm, gains=[%.3f,%.3f], trims=[%.3f,%.3f]" %
+                                (diagnostics.get('wheelbase', 0.1),
+                                 diagnostics.get('wheel_radius', 0.0318),
+                                 diagnostics.get('motor_gains', [1.0, 1.0])[0],
+                                 diagnostics.get('motor_gains', [1.0, 1.0])[1],
+                                 diagnostics.get('motor_trims', [0.0, 0.0])[0],
+                                 diagnostics.get('motor_trims', [0.0, 0.0])[1]))
+            self.vehicle_diagnostics_log_time = current_time
+        
+        # Log gain scheduling diagnostics periodically
+        if current_time - self.gain_scheduling_log_time > 20.0:  # Every 20 seconds
+            if hasattr(self.controller, 'get_gain_scheduling_diagnostics'):
+                gain_diagnostics = self.controller.get_gain_scheduling_diagnostics()
+                if gain_diagnostics:
+                    self.log("Gain Scheduling: speed=%.3fm/s, d_err=%.4fm, phi_err=%.4frad, adaptation=%s" %
+                            (gain_diagnostics.get('current_speed', 0.0),
+                             gain_diagnostics.get('current_lateral_error', 0.0),
+                             gain_diagnostics.get('current_heading_error', 0.0),
+                             gain_diagnostics.get('adaptation_active', False)))
+                    
+                    # Log detailed gain information
+                    if self.params["~verbose"] >= 2:
+                        scheduled_gains = gain_diagnostics.get('scheduled_gains', {})
+                        speed_scaling = gain_diagnostics.get('speed_scaling', {})
+                        error_scaling = gain_diagnostics.get('error_scaling', {})
+                        self.log("Scheduled Gains: k_d=%.3f, k_theta=%.3f, k_Id=%.3f, k_Iphi=%.3f" %
+                                (scheduled_gains.get('k_d', 0.0),
+                                 scheduled_gains.get('k_theta', 0.0),
+                                 scheduled_gains.get('k_Id', 0.0),
+                                 scheduled_gains.get('k_Iphi', 0.0)))
+                        self.log("Gain Scaling: speed=[%.3f,%.3f], error=[%.3f,%.3f]" %
+                                (speed_scaling.get('k_d', 1.0),
+                                 speed_scaling.get('k_theta', 1.0),
+                                 error_scaling.get('k_d', 1.0),
+                                 error_scaling.get('k_theta', 1.0)))
+            self.gain_scheduling_log_time = current_time
 
     def cbParametersChanged(self):
         """Updates parameters in the controller object."""

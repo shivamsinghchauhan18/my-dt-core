@@ -1,0 +1,106 @@
+# MPC Lane Controller Configuration
+# Model Predictive Control parameters for enhanced lane following
+
+# Basic control parameters (inherited from default.yaml)
+v_bar: 0.19
+k_d: -6.0
+k_theta: -5
+k_Id: -0.3
+k_Iphi: 0.0
+theta_thres_max: 0.75
+theta_thres_min: -0.5
+d_thres: 0.2615
+d_offset: 0.0
+omega_ff: 0
+
+integral_bounds:
+  d:
+    top: 0.3
+    bot: -0.3
+  phi:
+    top: 1.2
+    bot: -1.2
+
+d_resolution: 0.011
+phi_resolution: 0.051
+
+stop_line_slowdown:
+  start: 0.6
+  end: 0.15
+
+# MPC-specific parameters
+use_mpc: true
+
+# MPC horizon parameters
+mpc_prediction_horizon: 10    # Number of prediction steps
+mpc_control_horizon: 5        # Number of control steps
+mpc_dt: 0.1                   # Time step in seconds
+
+# MPC constraints
+mpc_max_velocity: 0.5         # Maximum linear velocity (m/s)
+mpc_max_angular_velocity: 2.0 # Maximum angular velocity (rad/s)
+
+# MPC cost function weights
+mpc_velocity_weight: 1.0      # Weight for velocity tracking
+mpc_angular_weight: 1.0       # Weight for angular velocity penalty
+mpc_lateral_weight: 10.0      # Weight for lateral error (higher = more aggressive centering)
+mpc_heading_weight: 5.0       # Weight for heading error
+mpc_smoothness_weight: 1.0    # Weight for control smoothness
+
+# MPC adaptive features
+mpc_adaptive_horizon: true    # Enable adaptive horizon based on speed
+
+# Enhanced vehicle model parameters
+use_enhanced_vehicle_model: true
+
+# Physical vehicle parameters
+vehicle_wheelbase: 0.1        # Distance between wheels (m)
+vehicle_wheel_radius: 0.0318  # Wheel radius (m)
+vehicle_width: 0.13           # Vehicle width (m)
+vehicle_length: 0.18          # Vehicle length (m)
+vehicle_mass: 1.2             # Vehicle mass (kg)
+
+# Kinematic constraints
+vehicle_max_linear_velocity: 0.5      # Maximum linear velocity (m/s)
+vehicle_max_angular_velocity: 2.0     # Maximum angular velocity (rad/s)
+vehicle_max_linear_acceleration: 1.0  # Maximum linear acceleration (m/s²)
+vehicle_max_angular_acceleration: 3.0 # Maximum angular acceleration (rad/s²)
+
+# Dynamic parameters
+vehicle_moment_of_inertia: 0.01       # Moment of inertia (kg⋅m²)
+vehicle_friction_coefficient: 0.8     # Tire-ground friction coefficient
+vehicle_drag_coefficient: 0.1        # Air drag coefficient
+
+# Motor parameters
+vehicle_motor_time_constant: 0.1      # Motor response time constant (s)
+vehicle_motor_deadband: 0.05          # Motor deadband (normalized)
+vehicle_motor_saturation: 1.0         # Motor saturation limit
+
+# Adaptive gain scheduling parameters
+use_adaptive_gains: true
+
+# Speed-dependent gain scheduling
+adaptive_low_speed_threshold: 0.1     # Low speed threshold (m/s)
+adaptive_high_speed_threshold: 0.3    # High speed threshold (m/s)
+adaptive_low_speed_k_d_scale: 1.5     # Lateral gain scale at low speed
+adaptive_low_speed_k_theta_scale: 1.2 # Heading gain scale at low speed
+adaptive_high_speed_k_d_scale: 0.8    # Lateral gain scale at high speed
+adaptive_high_speed_k_theta_scale: 0.9 # Heading gain scale at high speed
+
+# Error-dependent gain scheduling
+adaptive_small_error_threshold: 0.05  # Small error threshold
+adaptive_large_error_threshold: 0.15  # Large error threshold
+adaptive_small_error_scale: 0.8       # Gain scale for small errors
+adaptive_large_error_scale: 1.3       # Gain scale for large errors
+
+# Integral gain scheduling
+adaptive_integral_windup_threshold: 0.2 # Integral windup threshold
+adaptive_integral_scale_factor: 0.5     # Integral gain scale factor
+
+# Adaptive learning parameters
+adaptive_adaptation_rate: 0.1         # Adaptation rate (0.0-1.0)
+adaptive_min_gain_scale: 0.3          # Minimum gain scaling factor
+adaptive_max_gain_scale: 2.0          # Maximum gain scaling factor
+
+# Logging and monitoring
+verbose: 2                    # Enable detailed logging (0=none, 1=basic, 2=detailed)

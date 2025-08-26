@@ -7,6 +7,18 @@ enable_apriltag_stops: true
 apriltag_stop_distance_threshold: 1.0  # Start stop sequence at 1m
 apriltag_stop_duration: 2.0  # Stop for 2 seconds
 
+# Safety monitoring parameters
+enable_safety_monitoring: true
+emergency_stop_timeout: 0.2  # 200ms emergency response time
+safety_check_frequency: 1.0  # 1 Hz safety monitoring
+cpu_temp_warning: 70.0  # CPU temperature warning threshold (°C)
+cpu_temp_critical: 85.0  # CPU temperature critical threshold (°C)
+memory_warning: 80.0  # Memory usage warning threshold (%)
+memory_critical: 95.0  # Memory usage critical threshold (%)
+sensor_timeout: 2.0  # Sensor timeout threshold (seconds)
+algorithm_fps_warning: 15.0  # Algorithm FPS warning threshold
+algorithm_fps_critical: 10.0  # Algorithm FPS critical threshold
+
 events: # Maps from subscribing topic to signal ids
   joystick_override_on:
     topic: "joy_mapper_node/joystick_override"
@@ -64,5 +76,20 @@ states:
     lights: "RED"
     transitions:
       joystick_override_on: "NORMAL_JOYSTICK_CONTROL"
+  EMERGENCY_STOP:
+    active_nodes: []  # Disable all autonomous nodes in emergency
+    lights: "EMERGENCY_STOP"
+    transitions:
+      joystick_override_on: "NORMAL_JOYSTICK_CONTROL"
+  SAFE_MODE:
+    active_nodes:
+      - anti_instagram
+      - line_detector_node
+      - lane_filter_node
+      - ground_projection_node
+    lights: "WARNING"
+    transitions:
+      joystick_override_on: "NORMAL_JOYSTICK_CONTROL"
+      joystick_override_off: "LANE_FOLLOWING"
 
 

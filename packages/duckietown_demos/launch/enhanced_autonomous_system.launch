@@ -1,0 +1,399 @@
+<?xml version="1.0" encoding="utf-8"?>
+<launch>
+    <!-- Enhanced Autonomous Duckietown System Master Launch File -->
+    <!-- Integrates all enhanced components with proper dependency management -->
+    
+    <arg name="veh" default="$(env VEHICLE_NAME)" doc="Name of vehicle"/>
+    <arg name="demo_name" value="enhanced_autonomous_system"/>
+    <arg name="config" default="baseline" doc="Configuration mode (baseline/debug/performance)"/>
+    <arg name="param_file_name" default="default" doc="Parameter file name"/>
+    
+    <!-- Feature toggles -->
+    <arg name="enable_enhanced_lane_following" default="true" doc="Enable enhanced lane following with adaptive detection"/>
+    <arg name="enable_apriltag_detection" default="true" doc="Enable enhanced AprilTag detection and stop control"/>
+    <arg name="enable_object_detection" default="true" doc="Enable YOLO-based object detection"/>
+    <arg name="enable_lane_changing" default="true" doc="Enable dynamic lane changing"/>
+    <arg name="enable_safety_monitoring" default="true" doc="Enable comprehensive safety monitoring"/>
+    <arg name="enable_coordination" default="true" doc="Enable intelligent behavior coordination"/>
+    <arg name="enable_performance_optimization" default="true" doc="Enable performance optimization"/>
+    
+    <!-- Debug and monitoring -->
+    <arg name="enable_monitoring" default="true" doc="Enable system monitoring"/>
+    <arg name="enable_logging" default="true" doc="Enable comprehensive logging"/>
+    <arg name="enable_visualization" default="false" doc="Enable RViz visualization"/>
+    <arg name="verbose" default="false" doc="Enable verbose logging"/>
+    
+    <!-- System startup sequence with dependency management -->
+    <group ns="$(arg veh)">
+        
+        <!-- Phase 1: Core Infrastructure -->
+        <include file="$(find duckietown_demos)/launch/master.launch">
+            <arg name="veh" value="$(arg veh)"/>
+            <arg name="demo_name" value="$(arg demo_name)"/>
+            <arg name="param_file_name" value="$(arg param_file_name)"/>
+            <arg name="visualization" value="$(arg enable_visualization)"/>
+            
+            <!-- Basic infrastructure -->
+            <arg name="fsm" value="true"/>
+            <arg name="/fsm/logic_gate" value="false"/>
+            <arg name="anti_instagram" value="true"/>
+            <arg name="LED" value="true"/>
+            <arg name="/LED/emitter" value="true"/>
+            
+            <!-- Disable standard lane following (we'll use enhanced version) -->
+            <arg name="lane_following" value="false"/>
+        </include>
+        
+        <!-- Phase 2: Enhanced Perception Layer -->
+        <group if="$(arg enable_enhanced_lane_following)">
+            <!-- Enhanced Line Detection -->
+            <include file="$(find line_detector)/launch/line_detector_node.launch">
+                <arg name="veh" value="$(arg veh)"/>
+                <arg name="config" value="$(arg config)"/>
+                <arg name="param_file_name" value="enhanced_adaptive"/>
+            </include>
+            
+            <!-- Enhanced Lane Filter with Curve Fitting -->
+            <include file="$(find lane_filter)/launch/lane_filter_node.launch">
+                <arg name="veh" value="$(arg veh)"/>
+                <arg name="config" value="$(arg config)"/>
+                <arg name="param_file_name" value="enhanced_curve_fitting"/>
+            </include>
+            
+            <!-- Ground Projection -->
+            <include file="$(find ground_projection)/launch/ground_projection_node.launch">
+                <arg name="veh" value="$(arg veh)"/>
+                <arg name="config" value="$(arg config)"/>
+            </include>
+        </group>
+        
+        <group if="$(arg enable_apriltag_detection)">
+            <!-- Enhanced AprilTag Detection -->
+            <include file="$(find apriltag)/launch/apriltag_detector_node.launch">
+                <arg name="veh" value="$(arg veh)"/>
+                <arg name="config" value="enhanced_multi_resolution"/>
+            </include>
+            
+            <!-- AprilTag Post-processing -->
+            <include file="$(find apriltag)/launch/apriltag_postprocessing_node.launch">
+                <arg name="veh" value="$(arg veh)"/>
+                <arg name="config" value="$(arg config)"/>
+            </include>
+        </group>
+        
+        <group if="$(arg enable_object_detection)">
+            <!-- YOLO Object Detection -->
+            <include file="$(find vehicle_detection)/launch/enhanced_vehicle_detection_node.launch">
+                <arg name="veh" value="$(arg veh)"/>
+                <arg name="config" value="$(arg config)"/>
+                <arg name="model_path" value="yolov5s.pt"/>
+                <arg name="confidence_threshold" value="0.6"/>
+            </include>
+        </group>
+        
+        <!-- Phase 3: Enhanced Control Layer -->
+        <group if="$(arg enable_enhanced_lane_following)">
+            <!-- Predictive Lane Controller with MPC -->
+            <include file="$(find lane_control)/launch/lane_controller_node.launch">
+                <arg name="veh" value="$(arg veh)"/>
+                <arg name="config" value="enhanced_mpc"/>
+                <arg name="param_file_name" value="mpc"/>
+            </include>
+        </group>
+        
+        <group if="$(arg enable_apriltag_detection)">
+            <!-- Precision Stop Controller -->
+            <include file="$(find stop_line_filter)/launch/stop_line_filter_node.launch">
+                <arg name="veh" value="$(arg veh)"/>
+                <arg name="config" value="precision_stop"/>
+            </include>
+        </group>
+        
+        <group if="$(arg enable_object_detection)">
+            <!-- Enhanced Navigation with Avoidance -->
+            <include file="$(find navigation)/launch/enhanced_navigation.launch">
+                <arg name="veh" value="$(arg veh)"/>
+                <arg name="config" value="$(arg config)"/>
+            </include>
+        </group>
+        
+        <group if="$(arg enable_lane_changing)">
+            <!-- Dynamic Lane Change System -->
+            <include file="$(find navigation)/launch/lane_change_system.launch">
+                <arg name="veh" value="$(arg veh)"/>
+                <arg name="config" value="$(arg config)"/>
+            </include>
+        </group>
+        
+        <!-- Phase 4: Safety and Coordination Layer -->
+        <group if="$(arg enable_safety_monitoring)">
+            <!-- Enhanced FSM with Safety Monitoring -->
+            <node name="fsm_node" pkg="fsm" type="fsm_node.py" output="screen" clear_params="true">
+                <rosparam command="load" file="$(find fsm)/config/fsm_node/enhanced_state_management.yaml"/>
+                <rosparam command="load" file="$(find fsm)/config/fsm_node/safety_monitoring.yaml"/>
+                
+                <!-- Enhanced safety parameters -->
+                <param name="enable_safety_monitoring" value="true"/>
+                <param name="enable_emergency_response" value="true"/>
+                <param name="enable_state_persistence" value="true"/>
+                <param name="safety_check_frequency" value="10.0"/>
+                <param name="emergency_stop_timeout" value="0.2"/>
+                
+                <!-- Logging -->
+                <param name="enable_comprehensive_logging" value="$(arg enable_logging)"/>
+                <param name="log_safety_events" value="true"/>
+                <param name="log_state_transitions" value="true"/>
+                <param name="log_emergency_stops" value="true"/>
+            </node>
+            
+            <!-- Safety Status Publisher -->
+            <node name="safety_status_publisher" pkg="fsm" type="safety_status_publisher.py" output="screen">
+                <param name="publish_rate" value="5.0"/>
+                <param name="enable_hardware_monitoring" value="true"/>
+                <param name="enable_sensor_monitoring" value="true"/>
+                <param name="enable_algorithm_monitoring" value="true"/>
+                
+                <!-- Safety thresholds -->
+                <param name="cpu_warning_threshold" value="80.0"/>
+                <param name="cpu_critical_threshold" value="95.0"/>
+                <param name="memory_warning_threshold" value="80.0"/>
+                <param name="memory_critical_threshold" value="95.0"/>
+                <param name="sensor_timeout_threshold" value="2.0"/>
+                
+                <!-- Logging -->
+                <param name="enable_comprehensive_logging" value="$(arg enable_logging)"/>
+                <param name="log_hardware_status" value="true"/>
+                <param name="log_sensor_status" value="true"/>
+                <param name="log_safety_violations" value="true"/>
+            </node>
+        </group>
+        
+        <group if="$(arg enable_coordination)">
+            <!-- Enhanced Coordination System -->
+            <include file="$(find duckietown_demos)/launch/enhanced_coordination_system.launch">
+                <arg name="veh" value="$(arg veh)"/>
+                <arg name="config" value="$(arg config)"/>
+                <arg name="enable_performance_optimization" value="$(arg enable_performance_optimization)"/>
+                <arg name="enable_enhanced_coordination" value="true"/>
+                <arg name="enable_advanced_state_management" value="true"/>
+                <arg name="verbose" value="$(arg verbose)"/>
+            </include>
+        </group>
+        
+        <!-- Phase 5: System Integration and Monitoring -->
+        <group if="$(arg enable_monitoring)">
+            <!-- Master Integration Coordinator -->
+            <node name="master_integration_coordinator" 
+                  pkg="duckietown_demos" 
+                  type="integration_coordinator_node.py" 
+                  output="screen" 
+                  clear_params="true">
+                
+                <!-- Integration parameters -->
+                <param name="enable_enhanced_integration" value="true"/>
+                <param name="coordination_timeout" value="30.0"/>
+                <param name="integration_check_frequency" value="2.0"/>
+                <param name="startup_sequence_timeout" value="120.0"/>
+                
+                <!-- Component monitoring -->
+                <param name="monitor_perception_components" value="true"/>
+                <param name="monitor_control_components" value="true"/>
+                <param name="monitor_safety_components" value="true"/>
+                <param name="monitor_coordination_components" value="true"/>
+                
+                <!-- Feature flags -->
+                <param name="enhanced_lane_following_enabled" value="$(arg enable_enhanced_lane_following)"/>
+                <param name="apriltag_detection_enabled" value="$(arg enable_apriltag_detection)"/>
+                <param name="object_detection_enabled" value="$(arg enable_object_detection)"/>
+                <param name="lane_changing_enabled" value="$(arg enable_lane_changing)"/>
+                <param name="safety_monitoring_enabled" value="$(arg enable_safety_monitoring)"/>
+                <param name="coordination_enabled" value="$(arg enable_coordination)"/>
+                
+                <!-- Logging -->
+                <param name="enable_comprehensive_logging" value="$(arg enable_logging)"/>
+                <param name="log_component_status" value="true"/>
+                <param name="log_integration_workflow" value="true"/>
+                <param name="log_startup_sequence" value="true"/>
+                <param name="log_dependency_resolution" value="true"/>
+                <param name="log_configuration_loading" value="true"/>
+                
+                <!-- Topic remapping for integration -->
+                <remap from="~lane_pose" to="lane_filter_node/lane_pose"/>
+                <remap from="~apriltag_detections" to="apriltag_detector_node/detections"/>
+                <remap from="~object_detections" to="enhanced_vehicle_detection_node/detections"/>
+                <remap from="~navigation_command" to="enhanced_navigation_node/car_cmd"/>
+                <remap from="~lane_change_command" to="lane_change_planner/car_cmd"/>
+                <remap from="~safety_status" to="safety_status_publisher/safety_status"/>
+                <remap from="~coordination_status" to="coordinator_node/coordination_status"/>
+                
+                <!-- Output topics -->
+                <remap from="~integrated_car_cmd" to="car_cmd_switch_node/cmd"/>
+                <remap from="~system_status" to="master_integration_coordinator/system_status"/>
+                <remap from="~integration_log" to="master_integration_coordinator/integration_log"/>
+            </node>
+            
+            <!-- System Performance Monitor -->
+            <node name="master_system_monitor" 
+                  pkg="duckietown_demos" 
+                  type="system_performance_monitor.py" 
+                  output="screen">
+                
+                <!-- Monitoring parameters -->
+                <param name="monitoring_interval" value="5.0"/>
+                <param name="enable_resource_monitoring" value="true"/>
+                <param name="enable_component_monitoring" value="true"/>
+                <param name="enable_performance_alerts" value="true"/>
+                <param name="enable_integration_monitoring" value="true"/>
+                
+                <!-- Performance thresholds -->
+                <param name="cpu_alert_threshold" value="85.0"/>
+                <param name="memory_alert_threshold" value="85.0"/>
+                <param name="fps_alert_threshold" value="15.0"/>
+                <param name="latency_alert_threshold" value="0.3"/>
+                <param name="integration_timeout_threshold" value="10.0"/>
+                
+                <!-- Logging -->
+                <param name="enable_comprehensive_logging" value="$(arg enable_logging)"/>
+                <param name="log_system_metrics" value="true"/>
+                <param name="log_component_performance" value="true"/>
+                <param name="log_integration_performance" value="true"/>
+                <param name="log_performance_alerts" value="true"/>
+                <param name="log_resource_utilization" value="true"/>
+            </node>
+        </group>
+        
+        <group if="$(arg enable_logging)">
+            <!-- Master Data Logger -->
+            <node name="master_data_logger" 
+                  pkg="duckietown_demos" 
+                  type="integration_data_logger.py" 
+                  output="screen">
+                
+                <!-- Logging configuration -->
+                <param name="log_directory" value="/tmp/enhanced_autonomous_system_logs"/>
+                <param name="enable_csv_logging" value="true"/>
+                <param name="enable_json_logging" value="true"/>
+                <param name="log_rotation_size" value="100"/>  <!-- MB -->
+                <param name="log_retention_days" value="7"/>
+                
+                <!-- Data collection -->
+                <param name="log_perception_data" value="true"/>
+                <param name="log_control_commands" value="true"/>
+                <param name="log_safety_events" value="true"/>
+                <param name="log_coordination_decisions" value="true"/>
+                <param name="log_integration_events" value="true"/>
+                <param name="log_performance_metrics" value="true"/>
+                
+                <!-- Sampling rates -->
+                <param name="perception_log_rate" value="2.0"/>  <!-- Hz -->
+                <param name="control_log_rate" value="5.0"/>  <!-- Hz -->
+                <param name="safety_log_rate" value="10.0"/>  <!-- Hz -->
+                <param name="coordination_log_rate" value="1.0"/>  <!-- Hz -->
+                <param name="integration_log_rate" value="0.5"/>  <!-- Hz -->
+                <param name="performance_log_rate" value="0.2"/>  <!-- Hz -->
+                
+                <!-- Topic subscriptions for logging -->
+                <remap from="~lane_pose" to="lane_filter_node/lane_pose"/>
+                <remap from="~apriltag_detections" to="apriltag_detector_node/detections"/>
+                <remap from="~object_detections" to="enhanced_vehicle_detection_node/detections"/>
+                <remap from="~car_cmd" to="master_integration_coordinator/integrated_car_cmd"/>
+                <remap from="~safety_status" to="safety_status_publisher/safety_status"/>
+                <remap from="~system_status" to="master_integration_coordinator/system_status"/>
+                <remap from="~performance_metrics" to="master_system_monitor/performance_metrics"/>
+            </node>
+        </group>
+        
+        <!-- Emergency Stop Override (Always Active) -->
+        <node name="master_emergency_stop" 
+              pkg="duckietown_demos" 
+              type="emergency_stop_override.py" 
+              output="screen">
+            
+            <!-- Emergency parameters -->
+            <param name="enable_emergency_override" value="true"/>
+            <param name="emergency_timeout" value="0.1"/>  <!-- seconds -->
+            <param name="safety_check_frequency" value="20.0"/>  <!-- Hz -->
+            
+            <!-- Emergency conditions -->
+            <param name="cpu_emergency_threshold" value="98.0"/>
+            <param name="memory_emergency_threshold" value="98.0"/>
+            <param name="sensor_timeout_threshold" value="3.0"/>
+            <param name="coordination_timeout_threshold" value="30.0"/>
+            <param name="integration_timeout_threshold" value="15.0"/>
+            
+            <!-- Recovery settings -->
+            <param name="enable_auto_recovery" value="true"/>
+            <param name="recovery_delay" value="3.0"/>  <!-- seconds -->
+            <param name="max_recovery_attempts" value="3"/>
+            
+            <!-- Logging -->
+            <param name="enable_comprehensive_logging" value="$(arg enable_logging)"/>
+            <param name="log_emergency_events" value="true"/>
+            <param name="log_recovery_attempts" value="true"/>
+            <param name="log_safety_violations" value="true"/>
+            
+            <!-- Monitor all emergency sources -->
+            <remap from="~navigation_emergency" to="enhanced_navigation_node/emergency_stop"/>
+            <remap from="~safety_emergency" to="safety_status_publisher/emergency_stop"/>
+            <remap from="~coordination_emergency" to="coordinator_node/emergency_stop"/>
+            <remap from="~integration_emergency" to="master_integration_coordinator/emergency_stop"/>
+            <remap from="~manual_emergency" to="joy_mapper_node/emergency_stop"/>
+            
+            <!-- Override all motor commands -->
+            <remap from="~emergency_cmd" to="wheels_driver_node/emergency_stop"/>
+        </node>
+        
+    </group>
+    
+    <!-- System Validation and Health Check -->
+    <node name="system_health_validator" 
+          pkg="duckietown_demos" 
+          type="validate_integration.py" 
+          output="screen">
+        
+        <!-- Validation parameters -->
+        <param name="check_interval" value="10.0"/>
+        <param name="startup_validation_timeout" value="180.0"/>
+        <param name="enable_continuous_validation" value="true"/>
+        
+        <!-- Component validation -->
+        <param name="validate_perception_components" value="$(arg enable_enhanced_lane_following)"/>
+        <param name="validate_apriltag_components" value="$(arg enable_apriltag_detection)"/>
+        <param name="validate_object_detection_components" value="$(arg enable_object_detection)"/>
+        <param name="validate_control_components" value="true"/>
+        <param name="validate_safety_components" value="$(arg enable_safety_monitoring)"/>
+        <param name="validate_coordination_components" value="$(arg enable_coordination)"/>
+        
+        <!-- Integration validation -->
+        <param name="validate_topic_connections" value="true"/>
+        <param name="validate_message_flow" value="true"/>
+        <param name="validate_timing_constraints" value="true"/>
+        <param name="validate_resource_constraints" value="true"/>
+        
+        <!-- Validation thresholds -->
+        <param name="component_timeout" value="5.0"/>
+        <param name="integration_timeout" value="10.0"/>
+        <param name="validation_retries" value="3"/>
+        <param name="max_validation_failures" value="5"/>
+        
+        <!-- Logging -->
+        <param name="enable_comprehensive_logging" value="$(arg enable_logging)"/>
+        <param name="log_validation_results" value="true"/>
+        <param name="log_component_health" value="true"/>
+        <param name="log_integration_health" value="true"/>
+        <param name="log_validation_failures" value="true"/>
+    </node>
+    
+    <!-- Logging Configuration -->
+    <group if="$(arg verbose)">
+        <env name="ROSCONSOLE_CONFIG_FILE" value="$(find duckietown_demos)/config/enhanced_autonomous_navigation_logging.conf"/>
+    </group>
+    
+    <!-- RViz Visualization (optional) -->
+    <group if="$(arg enable_visualization)">
+        <node name="rviz" pkg="rviz" type="rviz" 
+              args="-d $(find duckietown_demos)/config/enhanced_autonomous_system.rviz" 
+              output="screen"/>
+    </group>
+    
+</launch>

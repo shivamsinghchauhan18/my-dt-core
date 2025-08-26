@@ -1,0 +1,13 @@
+[0;34m[2025-08-26 04:15:27] [DEPLOY][0m Enhanced deployment script started
+[0;34m[2025-08-26 04:15:27] [DEPLOY][0m Project root: /Users/shivamsingh/dt-core
+[0;34m[2025-08-26 04:15:27] [DEPLOY][0m Log directory: /Users/shivamsingh/dt-core/deployment_logs
+[0;34m[2025-08-26 04:15:27] [DEPLOY][0m Deployment log: /Users/shivamsingh/dt-core/deployment_logs/deploy_20250826_041527.log
+[0;34m[2025-08-26 04:15:27] [DEPLOY][0m Checking deployment prerequisites...
+[0;32m[2025-08-26 04:15:27] [SUCCESS][0m Prerequisites check completed
+[0;34m[2025-08-26 04:15:27] [DEPLOY][0m DRY RUN MODE - No actual deployment will be performed
+[0;34m[2025-08-26 04:15:27] [DEPLOY][0m Would deploy to robot: example_robot
+[0;34m[2025-08-26 04:15:27] [DEPLOY][0m Would deploy: all
+[0;34m[2025-08-26 04:15:27] [DEPLOY][0m Loading configuration for robot: example_robot
+[1;33m[2025-08-26 04:15:27] [WARN][0m No robot-specific configuration found for: example_robot
+[0;34m[2025-08-26 04:15:27] [DEPLOY][0m Using default configuration values
+[0;31m[2025-08-26 04:15:27] [ERROR][0m Robot host not specified in configuration

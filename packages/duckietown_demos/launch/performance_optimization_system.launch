@@ -1,0 +1,184 @@
+<!--
+Performance Optimization System Launch File
+
+Launches the complete performance optimization system including:
+- Enhanced Performance Profiler
+- Dynamic Quality Adjuster  
+- Performance Alerting System
+- Resource Optimization Utils
+
+Author: Duckietown
+-->
+
+<launch>
+    <!-- Arguments -->
+    <arg name="veh" default="$(env VEHICLE_NAME)" doc="Name of vehicle"/>
+    <arg name="raspberry_pi_mode" default="true" doc="Enable Raspberry Pi optimizations"/>
+    <arg name="config" default="performance_optimization" doc="Configuration file name"/>
+    <arg name="enable_profiler" default="true" doc="Enable enhanced performance profiler"/>
+    <arg name="enable_quality_adjuster" default="true" doc="Enable dynamic quality adjuster"/>
+    <arg name="enable_alerting" default="true" doc="Enable performance alerting system"/>
+    <arg name="enable_resource_optimizer" default="true" doc="Enable resource optimization"/>
+    <arg name="debug" default="false" doc="Enable debug logging"/>
+    
+    <!-- Load configuration -->
+    <rosparam file="$(find duckietown_demos)/config/$(arg config).yaml" command="load"/>
+    
+    <!-- Enhanced Performance Profiler -->
+    <group if="$(arg enable_profiler)">
+        <node name="enhanced_performance_profiler" 
+              pkg="duckietown_demos" 
+              type="enhanced_performance_profiler.py" 
+              output="screen"
+              required="false">
+            
+            <param name="raspberry_pi_mode" value="$(arg raspberry_pi_mode)"/>
+            <param name="profiling_frequency" value="1.0"/>
+            <param name="profile_history_size" value="1000"/>
+            <param name="bottleneck_detection_window" value="30"/>
+            
+            <!-- Raspberry Pi thresholds -->
+            <param name="cpu_bottleneck_threshold" value="85.0" if="$(arg raspberry_pi_mode)"/>
+            <param name="memory_bottleneck_threshold" value="80.0" if="$(arg raspberry_pi_mode)"/>
+            <param name="latency_bottleneck_threshold" value="300.0" if="$(arg raspberry_pi_mode)"/>
+            <param name="fps_bottleneck_threshold" value="15.0" if="$(arg raspberry_pi_mode)"/>
+            
+            <!-- Desktop thresholds -->
+            <param name="cpu_bottleneck_threshold" value="90.0" unless="$(arg raspberry_pi_mode)"/>
+            <param name="memory_bottleneck_threshold" value="85.0" unless="$(arg raspberry_pi_mode)"/>
+            <param name="latency_bottleneck_threshold" value="200.0" unless="$(arg raspberry_pi_mode)"/>
+            <param name="fps_bottleneck_threshold" value="20.0" unless="$(arg raspberry_pi_mode)"/>
+            
+            <!-- Debug logging -->
+            <param name="enable_debug_logging" value="$(arg debug)"/>
+            
+            <!-- Remappings -->
+            <remap from="~component_performance" to="/performance_data/component_performance"/>
+            <remap from="~system_performance" to="/system_performance_monitor/system_health"/>
+        </node>
+    </group>
+    
+    <!-- Dynamic Quality Adjuster -->
+    <group if="$(arg enable_quality_adjuster)">
+        <node name="dynamic_quality_adjuster" 
+              pkg="image_processing" 
+              type="dynamic_quality_adjuster.py" 
+              output="screen"
+              required="false">
+            
+            <param name="raspberry_pi_mode" value="$(arg raspberry_pi_mode)"/>
+            <param name="adjustment_frequency" value="2.0"/>
+            <param name="target_fps" value="20.0" unless="$(arg raspberry_pi_mode)"/>
+            <param name="target_fps" value="15.0" if="$(arg raspberry_pi_mode)"/>
+            <param name="min_fps" value="10.0"/>
+            <param name="max_fps" value="30.0"/>
+            
+            <!-- Quality adjustment parameters -->
+            <param name="aggressive_adjustment" value="$(arg raspberry_pi_mode)"/>
+            <param name="adjustment_smoothing" value="0.7"/>
+            <param name="quality_hysteresis" value="0.1"/>
+            
+            <!-- Debug logging -->
+            <param name="enable_debug_logging" value="$(arg debug)"/>
+            
+            <!-- Remappings -->
+            <remap from="~resource_metrics" to="/performance_data/resource_metrics"/>
+            <remap from="~component_feedback" to="/performance_data/component_feedback"/>
+        </node>
+    </group>
+    
+    <!-- Performance Alerting System -->
+    <group if="$(arg enable_alerting)">
+        <node name="performance_alerting_system" 
+              pkg="duckietown_demos" 
+              type="performance_alerting_system.py" 
+              output="screen"
+              required="false">
+            
+            <param name="raspberry_pi_mode" value="$(arg raspberry_pi_mode)"/>
+            <param name="monitoring_frequency" value="2.0"/>
+            <param name="alert_retention_hours" value="24"/>
+            <param name="escalation_enabled" value="true"/>
+            <param name="email_notifications" value="false"/>
+            
+            <!-- Debug logging -->
+            <param name="enable_debug_logging" value="$(arg debug)"/>
+            
+            <!-- Remappings -->
+            <remap from="~component_metrics" to="/performance_data/component_metrics"/>
+            <remap from="~alert_acknowledgment" to="/performance_alerts/acknowledgment"/>
+        </node>
+    </group>
+    
+    <!-- Resource Optimization Node (wrapper for utilities) -->
+    <group if="$(arg enable_resource_optimizer)">
+        <node name="resource_optimization_monitor" 
+              pkg="image_processing" 
+              type="resource_optimization_monitor.py" 
+              output="screen"
+              required="false">
+            
+            <param name="raspberry_pi_mode" value="$(arg raspberry_pi_mode)"/>
+            <param name="optimization_interval" value="30.0"/>
+            <param name="memory_threshold_mb" value="1024" if="$(arg raspberry_pi_mode)"/>
+            <param name="memory_threshold_mb" value="2048" unless="$(arg raspberry_pi_mode)"/>
+            <param name="cpu_threshold_percent" value="80.0"/>
+            <param name="enable_aggressive_optimization" value="$(arg raspberry_pi_mode)"/>
+            
+            <!-- Debug logging -->
+            <param name="enable_debug_logging" value="$(arg debug)"/>
+            
+            <!-- Remappings -->
+            <remap from="~resource_status" to="/performance_data/resource_status"/>
+        </node>
+    </group>
+    
+    <!-- Performance Data Aggregator -->
+    <node name="performance_data_aggregator" 
+          pkg="duckietown_demos" 
+          type="performance_data_aggregator.py" 
+          output="screen"
+          required="false">
+        
+        <param name="aggregation_frequency" value="1.0"/>
+        <param name="data_retention_seconds" value="300"/>
+        <param name="raspberry_pi_mode" value="$(arg raspberry_pi_mode)"/>
+        
+        <!-- Debug logging -->
+        <param name="enable_debug_logging" value="$(arg debug)"/>
+        
+        <!-- Topic remappings for data collection -->
+        <remap from="~yolo_performance" to="/yolo_detector/performance_metrics"/>
+        <remap from="~navigation_performance" to="/navigation/performance_metrics"/>
+        <remap from="~lane_detection_performance" to="/lane_detector/performance_metrics"/>
+        <remap from="~apriltag_performance" to="/apriltag_detector/performance_metrics"/>
+        <remap from="~integration_performance" to="/integration_coordinator/performance_metrics"/>
+    </node>
+    
+    <!-- Performance Dashboard (optional visualization) -->
+    <group if="$(arg debug)">
+        <node name="performance_dashboard" 
+              pkg="duckietown_demos" 
+              type="performance_dashboard.py" 
+              output="screen"
+              required="false">
+            
+            <param name="update_frequency" value="0.5"/>
+            <param name="dashboard_port" value="8080"/>
+            <param name="enable_web_interface" value="true"/>
+            
+            <!-- Remappings -->
+            <remap from="~performance_data" to="/performance_data/aggregated"/>
+            <remap from="~alerts" to="/performance_alerting_system/active_alerts"/>
+            <remap from="~quality_settings" to="/dynamic_quality_adjuster/quality_settings"/>
+        </node>
+    </group>
+    
+    <!-- System Health Monitor Integration -->
+    <include file="$(find duckietown_demos)/launch/system_health_monitor.launch">
+        <arg name="veh" value="$(arg veh)"/>
+        <arg name="raspberry_pi_mode" value="$(arg raspberry_pi_mode)"/>
+        <arg name="enable_performance_integration" value="true"/>
+    </include>
+    
+</launch>

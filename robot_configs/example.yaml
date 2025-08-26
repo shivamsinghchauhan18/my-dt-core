@@ -1,0 +1,43 @@
+# Example Robot Configuration
+# Copy this file to ROBOT_NAME.yaml and customize for your robot
+
+robot:
+  # Network configuration
+  host: "duckiebot01.local"  # Robot hostname or IP address
+  user: "duckie"             # SSH username
+  port: 22                   # SSH port
+  
+  # System configuration
+  architecture: "arm64"      # Robot architecture (arm64, amd64)
+  distro: "daffy"           # Duckietown distribution
+  workspace: "/code/catkin_ws/src/dt-core"  # Workspace path on robot
+  
+  # Calibration configuration
+  calibration:
+    directory: "/data/config/calibrations"
+    camera_intrinsic: "camera_intrinsic.yaml"
+    camera_extrinsic: "camera_extrinsic.yaml"
+    kinematics: "kinematics.yaml"
+  
+  # Network configuration
+  network:
+    wifi_ssid: "Duckietown"
+    wifi_password: ""  # Leave empty if using key-based auth
+  
+  # Hardware configuration
+  hardware:
+    camera_topic: "/camera/image_raw"
+    motor_topic: "/wheels_driver_node/wheels_cmd"
+    led_topic: "/led_emitter_node/led_pattern"
+    
+  # Advanced configuration
+  advanced:
+    ros_master_uri: "http://localhost:11311"
+    ros_hostname: "localhost"
+    log_level: "INFO"
+    
+  # Deployment preferences
+  deployment:
+    auto_start: true
+    health_check_interval: 30
+    restart_policy: "unless-stopped"

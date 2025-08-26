@@ -13,8 +13,10 @@ ARG DOCKER_REGISTRY=docker.io
 ARG BASE_IMAGE=dt-ros-commons
 ARG BASE_TAG=${DISTRO}-${ARCH}
 ARG LAUNCHER=default
+ARG BUILD_TARGET=production
 
-# define base image
+# Multi-stage build configuration
+# Stage 1: Base development environment
 FROM ${DOCKER_REGISTRY}/duckietown/${BASE_IMAGE}:${BASE_TAG} as base
 
 # recall all arguments
@@ -94,9 +96,104 @@ LABEL org.duckietown.label.module.type="${REPO_NAME}" \
 # <== Do not change the code above this line
 # <==================================================
 
+# Stage 2: Development environment with additional tools
+FROM base as development
+
+# Development-specific environment variables
 ENV DUCKIETOWN_ROOT="${SOURCE_DIR}"
-# used for downloads
 ENV DUCKIETOWN_DATA="/tmp/duckietown-data"
+ENV PYTHONPATH="${PYTHONPATH}:${REPO_PATH}/packages"
+ENV BUILD_STAGE="development"
+
+# Install development tools
+RUN echo "$(date '+%Y-%m-%d %H:%M:%S') [BUILD] Installing development dependencies..." && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        gdb \
+        valgrind \
+        htop \
+        vim \
+        nano \
+        git \
+        curl \
+        wget \
+        tree \
+        tmux \
+        screen \
+        iputils-ping \
+        net-tools \
+        ssh-client \
+        rsync && \
+    echo "$(date '+%Y-%m-%d %H:%M:%S') [BUILD] Development tools installed successfully" && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# macOS development support - X11 forwarding setup
+RUN echo "$(date '+%Y-%m-%d %H:%M:%S') [BUILD] Setting up X11 forwarding for macOS development..." && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        x11-apps \
+        x11-utils \
+        x11-xserver-utils \
+        xauth && \
+    echo "$(date '+%Y-%m-%d %H:%M:%S') [BUILD] X11 forwarding setup completed" && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Development configuration
+RUN echo 'config echo 1' > .compmake.rc && \
+    echo "$(date '+%Y-%m-%d %H:%M:%S') [BUILD] Development configuration applied"
+
+# Stage 3: Testing environment
+FROM development as testing
+
+ENV BUILD_STAGE="testing"
+
+# Install testing dependencies
+RUN echo "$(date '+%Y-%m-%d %H:%M:%S') [BUILD] Installing testing dependencies..." && \
+    pip3 install --no-cache-dir \
+        pytest>=6.0.0 \
+        pytest-cov>=2.10.0 \
+        pytest-xdist>=2.0.0 \
+        coverage>=5.0.0 \
+        mock>=4.0.0 \
+        parameterized>=0.8.0 && \
+    echo "$(date '+%Y-%m-%d %H:%M:%S') [BUILD] Testing dependencies installed successfully"
+
+# Copy test configuration
+COPY ./packages/*/tests/ "${REPO_PATH}/tests/" 2>/dev/null || echo "No test directories found"
+
+# Stage 4: Production environment (optimized)
+FROM base as production
+
+ENV BUILD_STAGE="production"
+ENV DUCKIETOWN_ROOT="${SOURCE_DIR}"
+ENV DUCKIETOWN_DATA="/tmp/duckietown-data"
+
+# Production optimizations
+RUN echo "$(date '+%Y-%m-%d %H:%M:%S') [BUILD] Applying production optimizations..." && \
+    # Remove unnecessary packages to reduce image size
+    apt-get update && \
+    apt-get autoremove -y && \
+    apt-get autoclean && \
+    rm -rf /var/lib/apt/lists/* && \
+    # Clear pip cache
+    pip3 cache purge 2>/dev/null || true && \
+    # Remove development files
+    find /usr/local/lib/python3.*/dist-packages -name "*.pyc" -delete && \
+    find /usr/local/lib/python3.*/dist-packages -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true && \
+    echo "$(date '+%Y-%m-%d %H:%M:%S') [BUILD] Production optimizations completed"
+
 RUN echo 'config echo 1' > .compmake.rc
 
+# Copy production scripts
 COPY scripts/send-fsm-state.sh /usr/local/bin
+
+# Final stage selection based on BUILD_TARGET
+FROM ${BUILD_TARGET} as final
+
+# Log final build stage
+RUN echo "$(date '+%Y-%m-%d %H:%M:%S') [BUILD] Final build stage: ${BUILD_STAGE}" && \
+    echo "$(date '+%Y-%m-%d %H:%M:%S') [BUILD] Build completed successfully" && \
+    echo "Build stage: ${BUILD_STAGE}" > /tmp/build_info.txt && \
+    echo "Build timestamp: $(date)" >> /tmp/build_info.txt

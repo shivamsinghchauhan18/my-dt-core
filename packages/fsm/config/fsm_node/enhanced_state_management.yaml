@@ -1,0 +1,130 @@
+# Enhanced State Management Configuration for FSM Node
+
+# State persistence settings
+state_persistence:
+  enable_persistence: true
+  persistence_path: "/tmp/fsm_state_enhanced.pkl"
+  snapshot_interval: 10.0  # seconds
+  max_snapshots: 100
+  max_transition_history: 1000
+
+# State validation settings
+state_validation:
+  enable_validation: true
+  timeout_validation: true
+  consistency_validation: true
+  safety_validation: true
+  resource_validation: true
+  
+  # State-specific timeouts (seconds)
+  state_timeouts:
+    LANE_FOLLOWING: 300.0
+    INTERSECTION_COORDINATION: 30.0
+    APRILTAG_STOP: 10.0
+    EMERGENCY_STOP: 60.0
+    SAFE_MODE: 120.0
+    TL_SENSING: 120.0
+    AT_STOP_CLEARING: 15.0
+    SACRIFICE: 20.0
+    KEEP_CALM: 10.0
+
+# Recovery mechanisms
+recovery_settings:
+  enable_recovery: true
+  max_recovery_attempts: 3
+  recovery_strategies:
+    - timeout_recovery
+    - consistency_recovery
+    - safety_recovery
+    - resource_recovery
+    - general_recovery
+  
+  # Recovery timeouts
+  recovery_timeout: 5.0  # seconds
+  recovery_backoff_factor: 1.5
+
+# State transition validation rules
+transition_validation:
+  # Invalid direct transitions
+  invalid_transitions:
+    EMERGENCY_STOP:
+      - LANE_FOLLOWING  # Must go through SAFE_MODE first
+    APRILTAG_STOP:
+      - INTERSECTION_COORDINATION  # Invalid transition
+  
+  # Required intermediate states
+  required_intermediates:
+    EMERGENCY_STOP_to_LANE_FOLLOWING: "SAFE_MODE"
+    CRITICAL_ERROR_to_NORMAL: "SAFE_MODE"
+
+# Preconditions for state entry
+state_preconditions:
+  LANE_FOLLOWING:
+    - camera_available
+    - lane_detection_ready
+  INTERSECTION_COORDINATION:
+    - apriltag_detection_ready
+  EMERGENCY_STOP: []  # No preconditions
+  SAFE_MODE:
+    - basic_systems_operational
+
+# Postconditions for state verification
+state_postconditions:
+  LANE_FOLLOWING:
+    - lane_following_active
+  INTERSECTION_COORDINATION:
+    - coordination_active
+  EMERGENCY_STOP:
+    - emergency_stop_active
+
+# Performance monitoring
+performance_monitoring:
+  enable_monitoring: true
+  log_interval: 30.0  # seconds
+  track_state_durations: true
+  track_transition_counts: true
+  track_validation_failures: true
+  track_recovery_events: true
+
+# Enhanced AprilTag stop management
+apriltag_stop_management:
+  enable_enhanced_stops: true
+  stop_distance_threshold: 1.0  # meters
+  stop_duration: 2.0  # seconds
+  precision_tolerance: 0.1  # meters
+  max_stop_attempts: 3
+  
+  # Stop sequence validation
+  validate_stop_sequence: true
+  require_complete_stop: true
+  verify_stop_duration: true
+
+# Safety integration
+safety_integration:
+  enable_safety_monitoring: true
+  emergency_stop_timeout: 0.2  # seconds
+  safety_check_frequency: 1.0  # Hz
+  
+  # Safety thresholds
+  cpu_temp_warning: 70.0  # Celsius
+  cpu_temp_critical: 85.0  # Celsius
+  memory_warning: 80.0  # Percentage
+  memory_critical: 95.0  # Percentage
+  sensor_timeout: 2.0  # seconds
+  algorithm_fps_warning: 15.0
+  algorithm_fps_critical: 10.0
+
+# Logging configuration
+logging:
+  enable_debug_logging: true
+  enable_state_transition_logging: true
+  enable_validation_logging: true
+  enable_recovery_logging: true
+  enable_performance_logging: true
+  enable_safety_logging: true
+  
+  # Log levels for different components
+  state_manager_log_level: "INFO"
+  safety_monitor_log_level: "WARN"
+  validation_log_level: "DEBUG"
+  recovery_log_level: "WARN"

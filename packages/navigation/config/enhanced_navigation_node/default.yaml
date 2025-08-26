@@ -55,3 +55,98 @@ recovery_check_interval: 1.0  # seconds - How often to check for recovery condit
 avoidance_speed_factor: 0.5   # Factor to reduce speed during avoidance (0.0-1.0)
 avoidance_duration: 2.0       # seconds - Minimum duration for avoidance behavior
 avoidance_recovery_margin: 1.5  # Factor for safety margin during recovery
+
+# Lane Change Decision Engine Parameters
+lane_change_enabled: true
+lane_change_evaluation_frequency: 2.0  # Hz - How often to evaluate lane change opportunities
+
+# Lane Change Decision Criteria
+lane_change_criteria:
+  obstacle_clearance_required: 1.5      # meters - Required clearance from obstacles
+  minimum_gap_length: 4.0               # meters - Minimum gap length for lane change
+  minimum_safety_margin: 1.0            # meters - Minimum safety margin
+  maximum_lateral_acceleration: 2.0     # m/s² - Maximum allowed lateral acceleration
+  decision_confidence_threshold: 0.7    # 0-1 - Minimum confidence for lane change decision
+  emergency_threshold: 0.9              # 0-1 - Threshold for emergency lane changes
+  comfort_factor: 0.8                   # 0-1 - Comfort factor for smooth maneuvers
+
+# Lane Change Decision Matrix Weights (must sum to 1.0)
+lane_change_decision_matrix:
+  safety_weight: 0.4        # Weight for safety considerations
+  efficiency_weight: 0.2    # Weight for path efficiency
+  comfort_weight: 0.15      # Weight for passenger comfort
+  urgency_weight: 0.15      # Weight for urgency of maneuver
+  feasibility_weight: 0.1   # Weight for maneuver feasibility
+
+# Gap Analysis Parameters
+gap_analysis:
+  max_gap_search_distance: 10.0    # meters - Maximum distance to search for gaps
+  gap_confidence_threshold: 0.6    # 0-1 - Minimum confidence for gap availability
+  leading_vehicle_buffer: 2.0      # meters - Extra buffer for leading vehicles
+  following_vehicle_buffer: 1.5    # meters - Extra buffer for following vehicles
+
+# Lane Change Trajectory Parameters
+lane_change_trajectory:
+  maximum_maneuver_time: 3.0       # seconds - Maximum time for lane change
+  preferred_maneuver_time: 2.0     # seconds - Preferred time for lane change
+  lane_width: 0.6                  # meters - Standard Duckietown lane width
+  trajectory_smoothness_factor: 0.8 # 0-1 - Factor for trajectory smoothness
+  waypoint_resolution: 0.1         # seconds - Time between trajectory waypoints
+  polynomial_order: 5              # Order of polynomial for trajectory generation
+
+# Trajectory Generation Constraints
+trajectory_constraints:
+  maximum_lateral_acceleration: 2.0  # m/s² - Maximum allowed lateral acceleration
+  maximum_curvature: 2.0             # 1/m - Maximum trajectory curvature
+  maximum_velocity: 2.0              # m/s - Maximum vehicle velocity
+  minimum_radius: 0.5                # m - Minimum turning radius
+  comfort_factor: 0.8                # 0-1 - Comfort optimization factor
+  safety_margin: 0.3                 # m - Safety margin for trajectory
+  preferred_duration: 2.0            # s - Preferred trajectory duration
+  maximum_duration: 3.0              # s - Maximum allowed trajectory duration
+
+# Trajectory Validation Parameters
+trajectory_validation:
+  enable_constraint_checking: true   # Enable trajectory constraint validation
+  enable_smoothness_checking: true   # Enable trajectory smoothness validation
+  enable_feasibility_checking: true  # Enable trajectory feasibility checking
+  validation_tolerance: 0.01         # Tolerance for constraint validation
+  smoothness_threshold: 0.5          # Threshold for smoothness validation
+
+# Dynamic Lane Change Integration Parameters
+lane_change_integration:
+  enable_coordination_integration: true    # Enable coordination with FSM and explicit_coordinator
+  enable_led_signaling_integration: true  # Enable LED signaling integration
+  enable_trajectory_execution: true       # Enable trajectory execution
+  coordination_timeout: 10.0              # seconds - Maximum time for coordination
+  execution_monitoring: true              # Enable execution monitoring and logging
+
+# Lane Change Workflow Parameters
+lane_change_workflow:
+  decision_evaluation_frequency: 2.0      # Hz - Frequency for decision evaluation
+  trajectory_generation_timeout: 1.0      # seconds - Timeout for trajectory generation
+  signaling_lead_time: 0.5               # seconds - Lead time for signaling before execution
+  execution_monitoring_frequency: 10.0    # Hz - Frequency for execution monitoring
+  abort_detection_sensitivity: 0.3        # Sensitivity for abort condition detection
+
+# System Integration Parameters
+system_integration:
+  fsm_coordination_enabled: true          # Enable FSM state coordination
+  explicit_coordinator_integration: true  # Enable explicit coordinator integration
+  led_emitter_integration: true          # Enable LED emitter integration
+  safety_monitoring_integration: true     # Enable safety monitoring integration
+  performance_logging_integration: true   # Enable performance logging integration
+
+# Lane Change Safety Parameters
+lane_change_safety:
+  abort_threshold: 0.3             # 0-1 - Confidence threshold for aborting lane change
+  safety_violation_limit: 3        # Number of safety violations before disabling
+  recovery_time: 5.0               # seconds - Time to wait after safety violation
+  emergency_abort_distance: 0.5   # meters - Distance that triggers emergency abort
+
+# Performance Monitoring for Lane Change
+lane_change_monitoring:
+  log_decision_details: true       # Log detailed decision information
+  log_gap_analysis: true          # Log gap analysis results
+  log_performance_metrics: true   # Log performance metrics
+  decision_history_length: 20     # Number of decisions to keep in history

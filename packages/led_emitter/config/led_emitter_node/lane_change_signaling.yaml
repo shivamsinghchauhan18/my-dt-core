@@ -1,0 +1,112 @@
+# Lane Change Signaling Configuration
+# Intention signaler parameters for lane change communication
+
+# Lane Change Signaling Parameters
+lane_change_signaling_enabled: true
+lane_change_signal_duration: 3.0      # seconds - Duration of lane change signals
+lane_change_signal_frequency: 2.0     # Hz - Blinking frequency for turn signals
+abort_signal_duration: 1.0            # seconds - Duration of abort signals
+lane_change_signal_priority: 3        # Priority level (1=LOW, 2=NORMAL, 3=HIGH, 4=EMERGENCY)
+
+# Signal Pattern Timing
+signal_patterns:
+  left_turn:
+    duration: 3.0                      # seconds - Left turn signal duration
+    frequency: 2.0                     # Hz - Blinking frequency
+    color: "yellow"                    # LED color for left turn
+    led_mask: [1, 1, 0, 0, 0]         # LEDs to activate (front left, rear left)
+    priority: 3                       # HIGH priority
+    
+  right_turn:
+    duration: 3.0                      # seconds - Right turn signal duration
+    frequency: 2.0                     # Hz - Blinking frequency
+    color: "yellow"                    # LED color for right turn
+    led_mask: [0, 0, 0, 1, 1]         # LEDs to activate (rear right, front right)
+    priority: 3                       # HIGH priority
+    
+  hazard:
+    duration: 6.0                      # seconds - Hazard signal duration (longer)
+    frequency: 2.0                     # Hz - Blinking frequency
+    color: "yellow"                    # LED color for hazard
+    led_mask: [1, 1, 1, 1, 1]         # All LEDs active
+    priority: 4                       # EMERGENCY priority
+    
+  abort:
+    duration: 1.0                      # seconds - Abort signal duration (short)
+    frequency: 4.0                     # Hz - Fast blinking for urgency
+    color: "red"                       # LED color for abort
+    led_mask: [1, 1, 1, 1, 1]         # All LEDs active
+    priority: 4                       # EMERGENCY priority
+    
+  confirmation:
+    duration: 1.0                      # seconds - Confirmation signal duration
+    frequency: 1.0                     # Hz - Slow blink for confirmation
+    color: "green"                     # LED color for confirmation
+    led_mask: [1, 1, 1, 1, 1]         # All LEDs active
+    priority: 2                       # NORMAL priority
+
+# FSM Integration Parameters
+fsm_integration:
+  enable_fsm_coordination: true       # Enable FSM state coordination
+  lane_following_clear_signals: true  # Clear signals when returning to lane following
+  coordination_hazard_signals: true   # Activate hazard signals during coordination
+  emergency_override_signals: true    # Allow emergency states to override signals
+
+# Abort Mechanism Parameters
+abort_mechanism:
+  enable_abort_detection: true        # Enable lane change abort detection
+  abort_safety_threshold: 0.3         # Safety threshold for automatic abort
+  abort_timeout: 5.0                  # seconds - Maximum time before auto-abort
+  abort_recovery_time: 2.0            # seconds - Recovery time after abort
+
+# Communication Parameters
+communication:
+  signal_status_topic: "~lane_change_signal_status"  # Topic for signal status
+  lane_change_decision_topic: "/navigation/lane_change_decision"  # Lane change decisions
+  lane_change_abort_topic: "/navigation/lane_change_abort"        # Abort commands
+  fsm_state_topic: "/fsm_node/mode"                              # FSM state updates
+
+# Performance Monitoring
+monitoring:
+  enable_performance_logging: true    # Enable performance metrics logging
+  log_signal_timing: true            # Log detailed signal timing information
+  log_fsm_integration: true          # Log FSM integration events
+  log_abort_events: true             # Log abort mechanism events
+  metrics_update_frequency: 1.0      # Hz - Frequency for metrics updates
+
+# Safety Parameters
+safety:
+  max_signal_duration: 10.0          # seconds - Maximum allowed signal duration
+  signal_conflict_resolution: true   # Enable signal conflict resolution
+  emergency_signal_override: true    # Allow emergency signals to override others
+  signal_validation: true            # Enable signal pattern validation
+
+# LED Pattern Validation
+pattern_validation:
+  validate_color_names: true         # Validate LED color names against protocol
+  validate_led_indices: true         # Validate LED index ranges
+  validate_frequency_ranges: true    # Validate frequency ranges
+  validate_duration_limits: true     # Validate signal duration limits
+  
+# Debug and Testing
+debug:
+  enable_debug_logging: false        # Enable detailed debug logging
+  test_mode: false                   # Enable test mode for development
+  simulate_fsm_states: false         # Simulate FSM state changes for testing
+  pattern_test_duration: 2.0         # seconds - Duration for pattern testing
+
+# Integration with Navigation System
+navigation_integration:
+  enable_navigation_coordination: true    # Enable coordination with navigation system
+  lane_change_decision_topic: "/navigation/lane_change_decision"  # Topic for lane change decisions
+  trajectory_status_topic: "/navigation/trajectory_status"       # Topic for trajectory status
+  execution_status_topic: "/navigation/execution_status"         # Topic for execution status
+  coordination_timeout: 5.0                                      # seconds - Coordination timeout
+
+# Integration with FSM System
+fsm_integration_extended:
+  lane_following_state: "LANE_FOLLOWING"     # FSM state for normal lane following
+  coordination_state: "COORDINATION"         # FSM state for coordination
+  lane_change_state: "LANE_CHANGE"          # FSM state for lane change execution
+  emergency_state: "EMERGENCY_STOP"          # FSM state for emergency conditions
+  state_transition_timeout: 3.0              # seconds - Timeout for state transitions

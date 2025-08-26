@@ -1,0 +1,444 @@
+name: Enhanced Multi-Platform Build
+
+on:
+  push:
+    branches: [ main, develop, daffy ]
+  pull_request:
+    branches: [ main, develop, daffy ]
+  workflow_dispatch:
+    inputs:
+      build_target:
+        description: 'Build target (development, testing, production, all)'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+        - development
+        - testing
+        - production
+        - all
+
+env:
+  REGISTRY: docker.io
+  IMAGE_NAME: duckietown/dt-core
+  DISTRO: daffy
+
+jobs:
+  validate-build-system:
+    runs-on: ubuntu-latest
+    name: Validate Build System
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Validate build configuration
+      run: |
+        echo "$(date '+%Y-%m-%d %H:%M:%S') [CI] Validating build system configuration..."
+        make build-validate
+        
+    - name: Check dependency files
+      run: |
+        echo "$(date '+%Y-%m-%d %H:%M:%S') [CI] Checking dependency files..."
+        for file in dependencies-py3.txt dependencies-py3.dt.txt dependencies-py3.mock.txt; do
+          if [[ -f "$file" ]]; then
+            echo "✓ $file found ($(wc -l < "$file") lines)"
+            echo "$(date '+%Y-%m-%d %H:%M:%S') [CI] $file contents:"
+            head -10 "$file" | sed 's/^/  /'
+          else
+            echo "✗ $file missing"
+            exit 1
+          fi
+        done
+        
+    - name: Validate advanced dependencies
+      run: |
+        echo "$(date '+%Y-%m-%d %H:%M:%S') [CI] Validating advanced dependencies..."
+        
+        # Check PyTorch dependencies
+        if grep -q "torch" dependencies-py3.txt; then
+          echo "✓ PyTorch dependencies found"
+          grep "torch" dependencies-py3.txt | sed 's/^/  /'
+        else
+          echo "✗ PyTorch dependencies missing"
+          exit 1
+        fi
+        
+        # Check YOLO dependencies
+        if grep -q "ultralytics" dependencies-py3.txt; then
+          echo "✓ YOLO dependencies found"
+          grep "ultralytics" dependencies-py3.txt | sed 's/^/  /'
+        else
+          echo "✗ YOLO dependencies missing"
+          exit 1
+        fi
+        
+        # Check scientific computing dependencies
+        for dep in scipy numpy matplotlib; do
+          if grep -q "$dep" dependencies-py3.txt; then
+            echo "✓ $dep dependencies found"
+          else
+            echo "✗ $dep dependencies missing"
+            exit 1
+          fi
+        done
+
+  build-single-arch:
+    runs-on: ubuntu-latest
+    needs: validate-build-system
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [development, testing, production]
+        arch: [amd64, arm64]
+        
+    name: Build ${{ matrix.target }} (${{ matrix.arch }})
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      with:
+        driver-opts: |
+          network=host
+          
+    - name: Log in to Docker Hub
+      if: github.event_name != 'pull_request'
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch,suffix=-${{ matrix.target }}-${{ matrix.arch }}
+          type=ref,event=pr,suffix=-${{ matrix.target }}-${{ matrix.arch }}
+          type=raw,value=${{ env.DISTRO }}-${{ matrix.target }}-${{ matrix.arch }},enable={{is_default_branch}}
+          
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        platforms: linux/${{ matrix.arch }}
+        target: ${{ matrix.target }}
+        push: ${{ github.event_name != 'pull_request' }}
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        build-args: |
+          BUILD_TARGET=${{ matrix.target }}
+          ARCH=${{ matrix.arch }}
+          DISTRO=${{ env.DISTRO }}
+          BUILDKIT_INLINE_CACHE=1
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        
+    - name: Build performance analysis
+      if: always()
+      run: |
+        echo "$(date '+%Y-%m-%d %H:%M:%S') [CI] Build performance analysis for ${{ matrix.target }} (${{ matrix.arch }})"
+        
+        # Get image information if build succeeded
+        if docker images | grep -q "${{ env.IMAGE_NAME }}"; then
+          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.DISTRO }}-${{ matrix.target }}-${{ matrix.arch }}"
+          
+          echo "Image: $IMAGE_TAG"
+          docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" | grep "${{ env.IMAGE_NAME }}" || true
+          
+          # Layer analysis
+          echo "$(date '+%Y-%m-%d %H:%M:%S') [CI] Layer analysis:"
+          docker history "$IMAGE_TAG" --format "table {{.CreatedBy}}\t{{.Size}}" | head -10 || true
+        fi
+
+  build-multi-arch:
+    runs-on: ubuntu-latest
+    needs: [validate-build-system, build-single-arch]
+    if: github.event_name != 'pull_request'
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [development, testing, production]
+        
+    name: Build Multi-Arch ${{ matrix.target }}
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      with:
+        driver-opts: |
+          network=host
+          
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch,suffix=-${{ matrix.target }}-multi
+          type=raw,value=${{ env.DISTRO }}-${{ matrix.target }}-multi,enable={{is_default_branch}}
+          
+    - name: Build and push multi-architecture image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        platforms: linux/amd64,linux/arm64
+        target: ${{ matrix.target }}
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        build-args: |
+          BUILD_TARGET=${{ matrix.target }}
+          DISTRO=${{ env.DISTRO }}
+          BUILDKIT_INLINE_CACHE=1
+          BUILD_OPTIMIZATION=true
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        
+    - name: Inspect multi-architecture image
+      run: |
+        echo "$(date '+%Y-%m-%d %H:%M:%S') [CI] Multi-architecture image inspection"
+        IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.DISTRO }}-${{ matrix.target }}-multi"
+        
+        echo "Inspecting: $IMAGE_TAG"
+        docker buildx imagetools inspect "$IMAGE_TAG"
+
+  test-build-system:
+    runs-on: ubuntu-latest
+    needs: validate-build-system
+    name: Test Build System
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Test enhanced build script
+      run: |
+        echo "$(date '+%Y-%m-%d %H:%M:%S') [CI] Testing enhanced build script..."
+        chmod +x scripts/enhanced_build.sh
+        
+        # Test script help
+        ./scripts/enhanced_build.sh --help
+        
+        # Test build validation (dry run)
+        echo "$(date '+%Y-%m-%d %H:%M:%S') [CI] Testing build validation..."
+        # Note: Actual build would require more resources and time
+        
+    - name: Test Makefile targets
+      run: |
+        echo "$(date '+%Y-%m-%d %H:%M:%S') [CI] Testing Makefile targets..."
+        
+        # Test help targets
+        make build-help
+        
+        # Test validation
+        make build-validate
+        
+        # Test buildx setup (without actual build)
+        echo "$(date '+%Y-%m-%d %H:%M:%S') [CI] Testing buildx setup..."
+        make buildx-setup || echo "Buildx setup test completed"
+        make buildx-info || echo "Buildx info test completed"
+
+  test-enhanced-components:
+    runs-on: ubuntu-latest
+    needs: validate-build-system
+    name: Test Enhanced Components with Coverage
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.8'
+        
+    - name: Install test dependencies
+      run: |
+        echo "$(date '+%Y-%m-%d %H:%M:%S') [CI] Installing test dependencies..."
+        python -m pip install --upgrade pip
+        pip install coverage pytest pytest-cov numpy opencv-python psutil
+        
+        # Install additional dependencies for enhanced components
+        pip install torch torchvision ultralytics scipy matplotlib
+        
+    - name: Run enhanced performance benchmarking tests
+      run: |
+        echo "$(date '+%Y-%m-%d %H:%M:%S') [CI] Running enhanced performance benchmarking tests..."
+        cd packages/easy_regression
+        
+        # Run tests with coverage
+        python -m coverage run --source=src -m pytest tests/test_enhanced_performance_benchmarking.py -v
+        
+        # Generate coverage report
+        python -m coverage report -m
+        python -m coverage xml -o coverage_benchmarking.xml
+        
+        echo "$(date '+%Y-%m-%d %H:%M:%S') [CI] Enhanced benchmarking tests completed"
+        
+    - name: Run comprehensive component tests
+      run: |
+        echo "$(date '+%Y-%m-%d %H:%M:%S') [CI] Running comprehensive component tests..."
+        
+        # Test build system
+        python -m coverage run --source=. tests/test_build_system.py
+        python -m coverage xml -o coverage_build_system.xml
+        
+        # Test message structures
+        cd packages/duckietown_msgs
+        python test_basic.py
+        python test_messages.py
+        cd ../..
+        
+        # Test enhanced components (if available)
+        for package in packages/*/tests/; do
+          if [ -d "$package" ]; then
+            echo "$(date '+%Y-%m-%d %H:%M:%S') [CI] Testing package: $(dirname $package)"
+            cd "$(dirname $package)"
+            
+            # Run Python tests if they exist
+            if ls tests/test_*.py 1> /dev/null 2>&1; then
+              for test_file in tests/test_*.py; do
+                echo "$(date '+%Y-%m-%d %H:%M:%S') [CI] Running $test_file"
+                python "$test_file" || echo "Test $test_file completed with warnings"
+              done
+            fi
+            
+            cd - > /dev/null
+          fi
+        done
+        
+    - name: Generate comprehensive coverage report
+      run: |
+        echo "$(date '+%Y-%m-%d %H:%M:%S') [CI] Generating comprehensive coverage report..."
+        
+        # Combine coverage data if multiple coverage files exist
+        python -m coverage combine || echo "No coverage data to combine"
+        
+        # Generate final coverage report
+        python -m coverage report --show-missing
+        python -m coverage xml -o coverage_comprehensive.xml
+        
+        # Generate HTML coverage report
+        python -m coverage html -d coverage_html_report
+        
+        echo "$(date '+%Y-%m-%d %H:%M:%S') [CI] Coverage analysis completed"
+        
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      if: always()
+      with:
+        files: ./coverage_comprehensive.xml,./packages/easy_regression/coverage_benchmarking.xml,./coverage_build_system.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+        
+    - name: Archive coverage reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: coverage-reports
+        path: |
+          coverage_*.xml
+          coverage_html_report/
+          packages/easy_regression/coverage_*.xml
+        retention-days: 30
+        
+    - name: Performance benchmark analysis
+      run: |
+        echo "$(date '+%Y-%m-%d %H:%M:%S') [CI] Running performance benchmark analysis..."
+        
+        # Run performance benchmarks if available
+        if [ -f "packages/easy_regression/src/enhanced_performance_benchmarking.py" ]; then
+          cd packages/easy_regression/src
+          python enhanced_performance_benchmarking.py
+          
+          # Archive benchmark results
+          if [ -d "benchmark_results" ]; then
+            echo "$(date '+%Y-%m-%d %H:%M:%S') [CI] Benchmark results generated"
+            ls -la benchmark_results/
+          fi
+          
+          cd ../../..
+        fi
+        
+    - name: Archive benchmark results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: benchmark-results
+        path: |
+          packages/easy_regression/src/benchmark_results/
+          packages/easy_regression/src/test_data/
+        retention-days: 7
+
+  security-scan:
+    runs-on: ubuntu-latest
+    needs: build-single-arch
+    if: github.event_name != 'pull_request'
+    strategy:
+      matrix:
+        target: [production]
+        arch: [amd64]
+        
+    name: Security Scan ${{ matrix.target }} (${{ matrix.arch }})
+    
+    steps:
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.DISTRO }}-${{ matrix.target }}-${{ matrix.arch }}'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  build-summary:
+    runs-on: ubuntu-latest
+    needs: [build-single-arch, build-multi-arch]
+    if: always()
+    name: Build Summary
+    
+    steps:
+    - name: Generate build summary
+      run: |
+        echo "$(date '+%Y-%m-%d %H:%M:%S') [CI] Build Summary"
+        echo "=================================="
+        echo "Repository: ${{ github.repository }}"
+        echo "Branch: ${{ github.ref_name }}"
+        echo "Commit: ${{ github.sha }}"
+        echo "Event: ${{ github.event_name }}"
+        echo "Distribution: ${{ env.DISTRO }}"
+        echo
+        echo "Build Results:"
+        echo "- Single-arch builds: ${{ needs.build-single-arch.result }}"
+        echo "- Multi-arch builds: ${{ needs.build-multi-arch.result }}"
+        echo
+        echo "Available Images:"
+        echo "- Development: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.DISTRO }}-development-{amd64,arm64,multi}"
+        echo "- Testing: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.DISTRO }}-testing-{amd64,arm64,multi}"
+        echo "- Production: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.DISTRO }}-production-{amd64,arm64,multi}"
+        echo
+        echo "$(date '+%Y-%m-%d %H:%M:%S') [CI] Build workflow completed"

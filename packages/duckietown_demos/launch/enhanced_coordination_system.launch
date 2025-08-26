@@ -1,0 +1,222 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- Enhanced Coordination System Launch File -->
+    <!-- Integrates advanced behavior arbitration, state management, and performance optimization -->
+    
+    <arg name="veh" default="$(env VEHICLE_NAME)"/>
+    <arg name="config" default="baseline"/>
+    <arg name="param_file_name" default="default"/>
+    <arg name="use_rviz" default="false"/>
+    <arg name="verbose" default="false"/>
+    <arg name="enable_performance_optimization" default="true"/>
+    <arg name="enable_enhanced_coordination" default="true"/>
+    <arg name="enable_advanced_state_management" default="true"/>
+    
+    <!-- Vehicle-specific parameter loading -->
+    <rosparam command="load" file="$(find duckietown)/config/$(arg config)/$(arg param_file_name).yaml"/>
+    
+    <!-- Enhanced FSM Node with Advanced State Management -->
+    <group if="$(arg enable_advanced_state_management)">
+        <node name="fsm_node" pkg="fsm" type="fsm_node.py" output="screen" clear_params="true">
+            <rosparam command="load" file="$(find fsm)/config/fsm_node/lane_following.yaml"/>
+            <rosparam command="load" file="$(find fsm)/config/fsm_node/enhanced_state_management.yaml"/>
+            <rosparam command="load" file="$(find fsm)/config/fsm_node/safety_monitoring.yaml"/>
+            
+            <!-- Enhanced state management parameters -->
+            <param name="enable_state_persistence" value="true"/>
+            <param name="enable_enhanced_validation" value="true"/>
+            <param name="enable_recovery_mechanisms" value="true"/>
+            <param name="state_persistence_path" value="/tmp/fsm_state_$(arg veh).pkl"/>
+            <param name="max_recovery_attempts" value="3"/>
+            <param name="enable_safety_monitoring" value="true"/>
+            <param name="safety_check_frequency" value="1.0"/>
+            
+            <!-- AprilTag stop enhancement -->
+            <param name="enable_apriltag_stops" value="true"/>
+            <param name="apriltag_stop_distance_threshold" value="1.0"/>
+            <param name="apriltag_stop_duration" value="2.0"/>
+            
+            <!-- Performance monitoring -->
+            <param name="enable_performance_logging" value="true"/>
+            <param name="log_state_transitions" value="true"/>
+            <param name="log_validation_events" value="true"/>
+            <param name="log_recovery_events" value="true"/>
+        </node>
+    </group>
+    
+    <!-- Standard FSM Node (fallback) -->
+    <group unless="$(arg enable_advanced_state_management)">
+        <node name="fsm_node" pkg="fsm" type="fsm_node.py" output="screen" clear_params="true">
+            <rosparam command="load" file="$(find fsm)/config/fsm_node/lane_following.yaml"/>
+        </node>
+    </group>
+    
+    <!-- Enhanced Explicit Coordinator with Behavior Arbitration -->
+    <group if="$(arg enable_enhanced_coordination)">
+        <node name="coordinator_node" pkg="explicit_coordinator" type="coordinator_node.py" output="screen" clear_params="true">
+            <rosparam command="load" file="$(find explicit_coordinator)/config/behavior_arbitration.yaml"/>
+            
+            <!-- Behavior arbitration parameters -->
+            <param name="enable_behavior_arbitration" value="true"/>
+            <param name="arbitration_strategy" value="safety_first"/>
+            <param name="max_recovery_attempts" value="3"/>
+            <param name="enable_conflict_resolution" value="true"/>
+            <param name="enable_performance_monitoring" value="true"/>
+            
+            <!-- Coordination parameters -->
+            <param name="use_priority_protocol" value="true"/>
+            <param name="tl_timeout" value="120"/>
+            <param name="enable_enhanced_logging" value="true"/>
+            
+            <!-- Performance thresholds -->
+            <param name="max_decision_time" value="0.5"/>
+            <param name="warning_decision_time" value="0.2"/>
+            <param name="max_conflict_rate" value="0.3"/>
+        </node>
+    </group>
+    
+    <!-- Standard Coordinator (fallback) -->
+    <group unless="$(arg enable_enhanced_coordination)">
+        <node name="coordinator_node" pkg="explicit_coordinator" type="coordinator_node.py" output="screen" clear_params="true">
+            <param name="use_priority_protocol" value="true"/>
+            <param name="tl_timeout" value="120"/>
+        </node>
+    </group>
+    
+    <!-- Performance Optimization System -->
+    <group if="$(arg enable_performance_optimization)">
+        <node name="performance_optimizer" pkg="image_processing" type="performance_optimizer_node.py" output="screen" clear_params="true">
+            <!-- Resource monitoring thresholds -->
+            <param name="cpu_warning_threshold" value="80.0"/>
+            <param name="cpu_critical_threshold" value="95.0"/>
+            <param name="memory_warning_threshold" value="80.0"/>
+            <param name="memory_critical_threshold" value="95.0"/>
+            
+            <!-- Performance targets -->
+            <param name="target_fps" value="20.0"/>
+            <param name="min_fps" value="10.0"/>
+            <param name="optimization_interval" value="2.0"/>
+            
+            <!-- Optimization settings -->
+            <param name="enable_quality_adjustment" value="true"/>
+            <param name="enable_load_balancing" value="true"/>
+            <param name="enable_adaptive_rate_control" value="true"/>
+            <param name="enable_frame_skipping" value="true"/>
+            
+            <!-- Logging -->
+            <param name="enable_performance_logging" value="true"/>
+            <param name="log_optimization_actions" value="true"/>
+            <param name="log_resource_violations" value="true"/>
+        </node>
+    </group>
+    
+    <!-- Integration Coordinator Node -->
+    <node name="integration_coordinator" pkg="duckietown_demos" type="integration_coordinator_node.py" output="screen">
+        <!-- Integration parameters -->
+        <param name="enable_enhanced_integration" value="true"/>
+        <param name="coordination_timeout" value="30.0"/>
+        <param name="integration_check_frequency" value="2.0"/>
+        
+        <!-- Component monitoring -->
+        <param name="monitor_fsm_health" value="true"/>
+        <param name="monitor_coordinator_health" value="true"/>
+        <param name="monitor_performance_optimizer" value="true"/>
+        
+        <!-- Integration logging -->
+        <param name="enable_integration_logging" value="true"/>
+        <param name="log_component_status" value="true"/>
+        <param name="log_coordination_workflow" value="true"/>
+        <param name="log_system_health" value="true"/>
+    </node>
+    
+    <!-- System Performance Monitor -->
+    <node name="system_performance_monitor" pkg="duckietown_demos" type="system_performance_monitor.py" output="screen">
+        <!-- Monitoring parameters -->
+        <param name="monitoring_interval" value="5.0"/>
+        <param name="enable_resource_monitoring" value="true"/>
+        <param name="enable_component_monitoring" value="true"/>
+        <param name="enable_performance_alerts" value="true"/>
+        
+        <!-- Alert thresholds -->
+        <param name="cpu_alert_threshold" value="90.0"/>
+        <param name="memory_alert_threshold" value="90.0"/>
+        <param name="fps_alert_threshold" value="15.0"/>
+        <param name="latency_alert_threshold" value="0.5"/>
+        
+        <!-- Logging -->
+        <param name="enable_performance_logging" value="true"/>
+        <param name="log_system_metrics" value="true"/>
+        <param name="log_component_performance" value="true"/>
+        <param name="log_alerts" value="true"/>
+    </node>
+    
+    <!-- Integration Data Logger -->
+    <node name="integration_data_logger" pkg="duckietown_demos" type="integration_data_logger.py" output="screen">
+        <!-- Logging configuration -->
+        <param name="log_directory" value="/tmp/enhanced_coordination_logs"/>
+        <param name="enable_csv_logging" value="true"/>
+        <param name="enable_json_logging" value="true"/>
+        <param name="log_rotation_size" value="100"/>  <!-- MB -->
+        <param name="log_retention_days" value="7"/>
+        
+        <!-- Data collection -->
+        <param name="log_arbitration_events" value="true"/>
+        <param name="log_state_transitions" value="true"/>
+        <param name="log_optimization_actions" value="true"/>
+        <param name="log_performance_metrics" value="true"/>
+        <param name="log_safety_events" value="true"/>
+        
+        <!-- Sampling rates -->
+        <param name="arbitration_log_rate" value="1.0"/>  <!-- Hz -->
+        <param name="state_log_rate" value="2.0"/>  <!-- Hz -->
+        <param name="performance_log_rate" value="0.5"/>  <!-- Hz -->
+    </node>
+    
+    <!-- Emergency Stop Override (Safety) -->
+    <node name="emergency_stop_override" pkg="duckietown_demos" type="emergency_stop_override.py" output="screen">
+        <!-- Emergency stop parameters -->
+        <param name="enable_emergency_override" value="true"/>
+        <param name="emergency_timeout" value="0.2"/>  <!-- seconds -->
+        <param name="safety_check_frequency" value="10.0"/>  <!-- Hz -->
+        
+        <!-- Override conditions -->
+        <param name="cpu_emergency_threshold" value="98.0"/>
+        <param name="memory_emergency_threshold" value="98.0"/>
+        <param name="sensor_timeout_threshold" value="5.0"/>
+        <param name="coordination_timeout_threshold" value="60.0"/>
+        
+        <!-- Recovery settings -->
+        <param name="enable_auto_recovery" value="true"/>
+        <param name="recovery_delay" value="5.0"/>  <!-- seconds -->
+        <param name="max_recovery_attempts" value="3"/>
+    </node>
+    
+    <!-- RViz Visualization (optional) -->
+    <group if="$(arg use_rviz)">
+        <node name="rviz" pkg="rviz" type="rviz" args="-d $(find duckietown_demos)/config/enhanced_coordination.rviz" output="screen"/>
+    </group>
+    
+    <!-- Logging Configuration -->
+    <group if="$(arg verbose)">
+        <env name="ROSCONSOLE_CONFIG_FILE" value="$(find duckietown_demos)/config/enhanced_autonomous_navigation_logging.conf"/>
+    </group>
+    
+    <!-- System Health Check -->
+    <node name="system_health_check" pkg="duckietown_demos" type="validate_integration.py" output="screen">
+        <param name="check_interval" value="10.0"/>
+        <param name="enable_health_monitoring" value="true"/>
+        <param name="enable_component_validation" value="true"/>
+        <param name="enable_integration_validation" value="true"/>
+        
+        <!-- Health check parameters -->
+        <param name="component_timeout" value="5.0"/>
+        <param name="integration_timeout" value="10.0"/>
+        <param name="validation_retries" value="3"/>
+        
+        <!-- Alert settings -->
+        <param name="enable_health_alerts" value="true"/>
+        <param name="alert_on_component_failure" value="true"/>
+        <param name="alert_on_integration_failure" value="true"/>
+    </node>
+    
+</launch>

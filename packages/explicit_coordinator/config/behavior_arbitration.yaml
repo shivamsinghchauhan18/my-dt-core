@@ -1,0 +1,100 @@
+# Enhanced Behavior Arbitration Configuration for Explicit Coordinator
+
+# Behavior arbitration settings
+behavior_arbitration:
+  # Enable enhanced behavior arbitration
+  enable_arbitration: true
+  
+  # Arbitration strategy: 'safety_first', 'priority_based', 'confidence_weighted', 'temporal_priority'
+  default_strategy: "safety_first"
+  
+  # Maximum recovery attempts for failed transitions
+  max_recovery_attempts: 3
+  
+  # Performance monitoring settings
+  performance_monitoring:
+    enable_monitoring: true
+    log_interval: 10.0  # seconds
+    statistics_window: 100  # number of arbitrations to keep in history
+  
+  # Conflict resolution settings
+  conflict_resolution:
+    enable_conflict_logging: true
+    conflict_timeout: 5.0  # seconds
+    priority_boost_factor: 1.5
+    confidence_threshold: 0.6
+
+# Behavior registration and priorities
+registered_behaviors:
+  intersection_planning:
+    priority: 500
+    description: "Planning intersection approach"
+    can_be_interrupted: true
+    requires_clearance: false
+    timeout: 30.0
+  
+  at_stop_clearing:
+    priority: 500
+    description: "Clearing intersection stop"
+    can_be_interrupted: false
+    requires_clearance: true
+    timeout: 15.0
+  
+  traffic_light_sensing:
+    priority: 500
+    description: "Sensing traffic light state"
+    can_be_interrupted: true
+    requires_clearance: false
+    timeout: 120.0
+  
+  intersection_go:
+    priority: 550
+    description: "Executing intersection crossing"
+    can_be_interrupted: false
+    requires_clearance: true
+    timeout: 10.0
+  
+  sacrifice_behavior:
+    priority: 450
+    description: "Yielding to other vehicles"
+    can_be_interrupted: true
+    requires_clearance: false
+    timeout: 20.0
+  
+  keep_calm_behavior:
+    priority: 500
+    description: "Maintaining calm state"
+    can_be_interrupted: true
+    requires_clearance: false
+    timeout: 10.0
+  
+  priority_coordination:
+    priority: 600
+    description: "Priority vehicle coordination"
+    can_be_interrupted: false
+    requires_clearance: true
+    timeout: 5.0
+  
+  emergency_coordination:
+    priority: 1000
+    description: "Emergency coordination override"
+    can_be_interrupted: false
+    requires_clearance: false
+    timeout: 1.0
+
+# Coordination performance thresholds
+performance_thresholds:
+  max_decision_time: 0.5  # seconds
+  max_arbitration_failures: 5
+  max_conflict_rate: 0.3  # 30% of arbitrations
+  warning_decision_time: 0.2  # seconds
+  
+# Logging configuration
+logging:
+  enable_debug_logging: true
+  enable_performance_logging: true
+  enable_conflict_logging: true
+  log_behavior_requests: true
+  log_arbitration_results: true
+  log_priority_changes: true
+  log_coordination_outcomes: true

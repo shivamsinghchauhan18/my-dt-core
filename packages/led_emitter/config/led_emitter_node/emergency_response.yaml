@@ -1,0 +1,55 @@
+# Emergency Response System Configuration
+
+# Emergency response system parameters
+emergency_response_enabled: true
+emergency_pattern_priority: 100  # High priority for emergency patterns
+warning_pattern_duration: 5.0    # Duration for warning patterns (seconds)
+critical_pattern_duration: 10.0  # Duration for critical patterns (seconds)
+emergency_motor_stop_timeout: 0.2  # Emergency motor stop response time (seconds)
+
+# Emergency LED pattern definitions
+emergency_patterns:
+  EMERGENCY_STOP:
+    description: "Fast blinking red for emergency stop"
+    color_list: "red"
+    frequency: 10.6  # Fast blinking
+    frequency_mask: [1,1,1,1,1]
+    priority: 100
+    
+  CRITICAL_WARNING:
+    description: "Alternating red/yellow for critical conditions"
+    color_list: ["red","yellow","red","yellow","red"]
+    frequency: 5.7   # Medium blinking
+    frequency_mask: [1,1,1,1,1]
+    priority: 80
+    
+  SAFETY_WARNING:
+    description: "Blinking yellow for safety warnings"
+    color_list: "yellow"
+    frequency: 4.0   # Slow blinking
+    frequency_mask: [1,1,1,1,1]
+    priority: 60
+    
+  WARNING:
+    description: "Alternating yellow pattern for general warnings"
+    color_list: ["yellow","switchedoff","yellow","switchedoff","yellow"]
+    frequency: 1.9   # Very slow blinking
+    frequency_mask: [1,0,1,0,1]
+    priority: 40
+
+# Pattern timing parameters
+pattern_transition_delay: 0.1    # Delay between pattern transitions (seconds)
+emergency_override_enabled: true # Allow emergency patterns to override others
+pattern_queue_size: 5            # Maximum queued pattern changes
+
+# Motor control integration
+motor_stop_integration: true     # Enable motor stop integration
+emergency_stop_topic: "/emergency_stop"
+motor_cmd_topic: "/car_cmd"
+safety_status_topic: "/fsm_node/safety_status"
+
+# Logging and monitoring
+emergency_logging_enabled: true  # Enable detailed emergency logging
+pattern_timing_logs: true       # Log pattern timing information
+motor_integration_logs: true    # Log motor control integration
+response_time_monitoring: true  # Monitor emergency response times
