@@ -97,7 +97,7 @@ validate_environment() {
     fi
     
     # Check configuration file
-    CONFIG_FILE="$ROOT_DIR/configurations.yaml"
+    CONFIG_FILE="/code/catkin_ws/src/dt-duckiebot-interface/my-dt-core/configurations.yaml"
     if [ ! -f "$CONFIG_FILE" ]; then
         log_error "Configuration file not found: $CONFIG_FILE"
         exit 1
@@ -163,7 +163,7 @@ load_system_configuration() {
     log_info "Loading system configuration..."
     
     # Load global configuration
-    CONFIG_FILE="$ROOT_DIR/configurations.yaml"
+    CONFIG_FILE="/code/catkin_ws/src/dt-duckiebot-interface/my-dt-core/configurations.yaml"
     if [ -f "$CONFIG_FILE" ]; then
         log_debug "Loading configuration from: $CONFIG_FILE"
         # Configuration is loaded by individual nodes
