@@ -96,10 +96,15 @@ validate_environment() {
         exit 1
     fi
     
-    # Check configuration file
-    CONFIG_FILE="/code/catkin_ws/src/dt-duckiebot-interface/my-dt-core/configurations.yaml"
-    if [ ! -f "$CONFIG_FILE" ]; then
-        log_error "Configuration file not found: $CONFIG_FILE"
+    # Check configuration file (detect workspace automatically)
+    if [ -f "$ROOT_DIR/configurations.yaml" ]; then
+        CONFIG_FILE="$ROOT_DIR/configurations.yaml"
+    elif [ -f "/code/enhanced_ws/src/my-dt-core/configurations.yaml" ]; then
+        CONFIG_FILE="/code/enhanced_ws/src/my-dt-core/configurations.yaml"
+    elif [ -f "/code/catkin_ws/src/dt-duckiebot-interface/my-dt-core/configurations.yaml" ]; then
+        CONFIG_FILE="/code/catkin_ws/src/dt-duckiebot-interface/my-dt-core/configurations.yaml"
+    else
+        log_error "Configuration file not found in any expected location"
         exit 1
     fi
     
@@ -162,8 +167,17 @@ start_roscore() {
 load_system_configuration() {
     log_info "Loading system configuration..."
     
-    # Load global configuration
-    CONFIG_FILE="/code/catkin_ws/src/dt-duckiebot-interface/my-dt-core/configurations.yaml"
+    # Load global configuration (detect workspace automatically)
+    if [ -f "$ROOT_DIR/configurations.yaml" ]; then
+        CONFIG_FILE="$ROOT_DIR/configurations.yaml"
+    elif [ -f "/code/enhanced_ws/src/my-dt-core/configurations.yaml" ]; then
+        CONFIG_FILE="/code/enhanced_ws/src/my-dt-core/configurations.yaml"
+    elif [ -f "/code/catkin_ws/src/dt-duckiebot-interface/my-dt-core/configurations.yaml" ]; then
+        CONFIG_FILE="/code/catkin_ws/src/dt-duckiebot-interface/my-dt-core/configurations.yaml"
+    else
+        CONFIG_FILE="$ROOT_DIR/configurations.yaml"  # fallback
+    fi
+    
     if [ -f "$CONFIG_FILE" ]; then
         log_debug "Loading configuration from: $CONFIG_FILE"
         # Configuration is loaded by individual nodes
