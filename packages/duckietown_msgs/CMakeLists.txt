@@ -8,40 +8,27 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
 )
 
-## Generate messages in the 'msg' folder
-add_message_files(
-  FILES
-  # Existing messages (referenced in codebase)
-  LanePose.msg
-  SegmentList.msg
-  Segment.msg
-  FSMState.msg
-  BoolStamped.msg
-  WheelsCmdStamped.msg
-  Twist2DStamped.msg
-  VehicleCorners.msg
-  StopLineReading.msg
-  CoordinationClearance.msg
-  CoordinationSignal.msg
-  SignalsDetection.msg
-  AprilTagsWithInfos.msg
-  MaintenanceState.msg
-  # New messages for advanced autonomous system
-  ObjectDetectionArray.msg
-  ObjectDetection.msg
-  SafetyStatus.msg
-  AdvancedLanePose.msg
-  LaneCurves.msg
-  LaneCurve.msg
-)
+# Only include enhanced custom messages to avoid conflicts
+file(GLOB ENHANCED_MSG_FILES "msg/enhanced/*.msg")
 
-## Generate services in the 'srv' folder
-add_service_files(
-  FILES
-  ChangePattern.srv
-)
+if(ENHANCED_MSG_FILES)
+  # Extract just the filename from the full path for add_message_files
+  set(ENHANCED_MSG_NAMES "")
+  foreach(msg_file ${ENHANCED_MSG_FILES})
+    get_filename_component(msg_name ${msg_file} NAME)
+    list(APPEND ENHANCED_MSG_NAMES ${msg_name})
+  endforeach()
+  
+  add_message_files(
+    DIRECTORY msg/enhanced
+    FILES ${ENHANCED_MSG_NAMES}
+  )
+  
+  message(STATUS "Adding enhanced messages: ${ENHANCED_MSG_NAMES}")
+else()
+  message(WARNING "No enhanced messages found in msg/enhanced/")
+endif()
 
-## Generate added messages and services with any dependencies listed here
 generate_messages(
   DEPENDENCIES
   std_msgs

@@ -3,7 +3,7 @@
 
 robot:
   # Network configuration
-  host: "duckiebot01.local"  # Robot hostname or IP address
+  host: "blueduckie.local"  # Robot hostname or IP address
   user: "duckie"             # SSH username
   port: 22                   # SSH port
   
@@ -15,20 +15,20 @@ robot:
   # Calibration configuration
   calibration:
     directory: "/data/config/calibrations"
-    camera_intrinsic: "camera_intrinsic.yaml"
-    camera_extrinsic: "camera_extrinsic.yaml"
-    kinematics: "kinematics.yaml"
+    camera_intrinsic: "camera_intrinsic/blueduckie.yaml"
+    camera_extrinsic: "camera_extrinsic/blueduckie.yaml"
+    kinematics: "kinematics/blueduckie.yaml"
   
   # Network configuration
   network:
-    wifi_ssid: "Duckietown"
+    wifi_ssid: "Sumeet"
     wifi_password: ""  # Leave empty if using key-based auth
   
   # Hardware configuration
   hardware:
-    camera_topic: "/camera/image_raw"
-    motor_topic: "/wheels_driver_node/wheels_cmd"
-    led_topic: "/led_emitter_node/led_pattern"
+    camera_topic: "/blueduckie/camera/image_raw"
+    motor_topic: "/blueduckie/wheels_driver_node/wheels_cmd"
+    led_topic: "/blueduckie/led_emitter_node/led_pattern"
     
   # Advanced configuration
   advanced:

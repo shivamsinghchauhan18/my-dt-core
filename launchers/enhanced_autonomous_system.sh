@@ -7,7 +7,7 @@
 set -e
 
 # Configuration
-VEHICLE_NAME=${VEHICLE_NAME:-"duckiebot"}
+VEHICLE_NAME=${VEHICLE_NAME:-"blueduckie"}
 CONFIG_MODE=${CONFIG_MODE:-"baseline"}
 ENABLE_MONITORING=${ENABLE_MONITORING:-"true"}
 ENABLE_LOGGING=${ENABLE_LOGGING:-"true"}

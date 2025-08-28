@@ -1,0 +1,250 @@
+<?xml version="1.0" encoding="utf-8"?>
+<launch>
+    <!-- Enhanced Autonomous System Launch File for pinkduckie (DB21J) -->
+    <!-- Optimized configuration for advanced autonomous capabilities -->
+    
+        <!-- Enhanced Autonomous System Launch File for blueduckie (DB21J) -->
+    <!-- Main launcher integrating all enhanced components -->
+    
+    <arg name="veh" default="blueduckie"/>
+    <arg name="config" default="baseline"/>
+    <arg name="param_file_name" default="default"/>
+    <arg name="fsm_file_name" default="default"/>
+    <arg name="visualization" default="false"/>
+    <arg name="verbose" default="false"/>
+    <arg name="statistics" default="false"/>
+    <arg name="map_file" default="hud"/>
+    <arg name="anti_instagram" default="true"/>
+    
+    <!-- Enhanced system parameters -->
+    <arg name="adaptive_lane_detection" default="true"/>
+    <arg name="temporal_filtering" default="true"/>
+    <arg name="object_detection" default="true"/>
+    <arg name="safety_monitoring" default="true"/>
+    <arg name="performance_optimization" default="true"/>
+    
+    <!-- Robot-specific parameters for DB21J -->
+    <rosparam command="load" file="$(find duckietown_demos)/config/enhanced_autonomous_navigation_logging.conf"/>
+    
+    <!-- Enhanced Lane Detection System -->
+    <group if="$(arg adaptive_lane_detection)">
+        <remap from="line_detector_node/image/compressed" to="camera_node/image/compressed"/>
+        <include file="$(find line_detector)/launch/line_detector_node.launch">
+            <arg name="veh" value="$(arg veh)"/>
+            <arg name="config" value="$(arg config)"/>
+            <arg name="param_file_name" value="$(arg param_file_name)"/>
+            <arg name="verbose" value="$(arg verbose)"/>
+        </include>
+        
+        <!-- Enhanced parameters for adaptive detection -->
+        <rosparam param="/$(arg veh)/line_detector_node/adaptive_threshold_enabled">true</rosparam>
+        <rosparam param="/$(arg veh)/line_detector_node/temporal_filtering_enabled">$(arg temporal_filtering)</rosparam>
+        <rosparam param="/$(arg veh)/line_detector_node/adaptation_rate">0.15</rosparam>
+        <rosparam param="/$(arg veh)/line_detector_node/temporal_history_size">7</rosparam>
+        <rosparam param="/$(arg veh)/line_detector_node/consistency_threshold">0.6</rosparam>
+    </group>
+    
+    <!-- Enhanced Lane Filter with Polynomial Curve Fitting -->
+    <group>
+        <remap from="lane_filter_node/segment_list" to="line_detector_node/segment_list"/>
+        <remap from="lane_filter_node/car_cmd" to="car_cmd_switch_node/cmd"/>
+        <include file="$(find lane_filter)/launch/lane_filter_node.launch">
+            <arg name="veh" value="$(arg veh)"/>
+            <arg name="config" value="$(arg config)"/>
+            <arg name="param_file_name" value="$(arg param_file_name)"/>
+        </include>
+        
+        <!-- Enhanced curve fitting parameters -->
+        <rosparam param="/$(arg veh)/lane_filter_node/polynomial_fitting_enabled">true</rosparam>
+        <rosparam param="/$(arg veh)/lane_filter_node/curve_extrapolation_enabled">true</rosparam>
+        <rosparam param="/$(arg veh)/lane_filter_node/fitting_window_size">20</rosparam>
+        <rosparam param="/$(arg veh)/lane_filter_node/polynomial_degree">3</rosparam>
+    </group>
+    
+    <!-- Enhanced Lane Control with Predictive MPC -->
+    <group>
+        <remap from="lane_controller_node/lane_pose" to="lane_filter_node/lane_pose"/>
+        <remap from="lane_controller_node/wheels_cmd" to="wheels_driver_node/wheels_cmd"/>
+        <include file="$(find lane_control)/launch/lane_controller_node.launch">
+            <arg name="veh" value="$(arg veh)"/>
+            <arg name="config" value="$(arg config)"/>
+        </include>
+        
+        <!-- Enhanced MPC parameters -->
+        <rosparam param="/$(arg veh)/lane_controller_node/mpc_enabled">true</rosparam>
+        <rosparam param="/$(arg veh)/lane_controller_node/prediction_horizon">10</rosparam>
+        <rosparam param="/$(arg veh)/lane_controller_node/control_horizon">5</rosparam>
+        <rosparam param="/$(arg veh)/lane_controller_node/mpc_frequency">20.0</rosparam>
+        
+        <!-- DB21J specific tuning -->
+        <rosparam param="/$(arg veh)/lane_controller_node/v_bar">0.25</rosparam>
+        <rosparam param="/$(arg veh)/lane_controller_node/k_d">-3.0</rosparam>
+        <rosparam param="/$(arg veh)/lane_controller_node/k_theta">2.5</rosparam>
+    </group>
+    
+    <!-- Enhanced AprilTag Detection -->
+    <group>
+        <remap from="apriltag_detector_node/image/compressed" to="camera_node/image/compressed"/>
+        <remap from="apriltag_detector_node/camera_info" to="camera_node/camera_info"/>
+        <include file="$(find apriltag)/launch/apriltag_detector_node.launch">
+            <arg name="veh" value="$(arg veh)"/>
+            <arg name="config" value="$(arg config)"/>
+            <arg name="param_file_name" value="$(arg param_file_name)"/>
+        </include>
+        
+        <!-- Enhanced AprilTag parameters -->
+        <rosparam param="/$(arg veh)/apriltag_detector_node/multi_resolution_enabled">true</rosparam>
+        <rosparam param="/$(arg veh)/apriltag_detector_node/distance_estimation_enabled">true</rosparam>
+        <rosparam param="/$(arg veh)/apriltag_detector_node/false_positive_filtering">true</rosparam>
+        <rosparam param="/$(arg veh)/apriltag_detector_node/scale_factors">[0.5, 0.75, 1.0, 1.25, 1.5]</rosparam>
+    </group>
+    
+    <!-- Enhanced Stop Line Filter with Precision Control -->
+    <group>
+        <remap from="stop_line_filter_node/segment_list" to="line_detector_node/segment_list"/>
+        <remap from="stop_line_filter_node/lane_pose" to="lane_filter_node/lane_pose"/>
+        <include file="$(find stop_line_filter)/launch/stop_line_filter_node.launch">
+            <arg name="veh" value="$(arg veh)"/>
+            <arg name="config" value="$(arg config)"/>
+        </include>
+        
+        <!-- Precision stop parameters -->
+        <rosparam param="/$(arg veh)/stop_line_filter_node/precision_stop_enabled">true</rosparam>
+        <rosparam param="/$(arg veh)/stop_line_filter_node/target_stop_distance">0.32</rosparam>
+        <rosparam param="/$(arg veh)/stop_line_filter_node/deceleration_start_distance">1.0</rosparam>
+        <rosparam param="/$(arg veh)/stop_line_filter_node/stop_duration">2.0</rosparam>
+        <rosparam param="/$(arg veh)/stop_line_filter_node/max_deceleration">2.0</rosparam>
+    </group>
+    
+    <!-- Enhanced Vehicle Detection with YOLO -->
+    <group if="$(arg object_detection)">
+        <remap from="vehicle_detection_node/image/compressed" to="camera_node/image/compressed"/>
+        <include file="$(find vehicle_detection)/launch/vehicle_detection_node.launch">
+            <arg name="veh" value="$(arg veh)"/>
+            <arg name="config" value="$(arg config)"/>
+        </include>
+        
+        <!-- YOLO detection parameters optimized for DB21J -->
+        <rosparam param="/$(arg veh)/vehicle_detection_node/yolo_enabled">true</rosparam>
+        <rosparam param="/$(arg veh)/vehicle_detection_node/confidence_threshold">0.5</rosparam>
+        <rosparam param="/$(arg veh)/vehicle_detection_node/nms_threshold">0.4</rosparam>
+        <rosparam param="/$(arg veh)/vehicle_detection_node/max_detections">8</rosparam>
+        <rosparam param="/$(arg veh)/vehicle_detection_node/inference_device">cpu</rosparam>
+        <rosparam param="/$(arg veh)/vehicle_detection_node/target_fps">15</rosparam>
+    </group>
+    
+    <!-- Enhanced Navigation with Risk Assessment -->
+    <group>
+        <remap from="navigation_node/lane_pose" to="lane_filter_node/lane_pose"/>
+        <remap from="navigation_node/object_detections" to="vehicle_detection_node/detections"/>
+        <include file="$(find navigation)/launch/navigation_node.launch">
+            <arg name="veh" value="$(arg veh)"/>
+            <arg name="config" value="$(arg config)"/>
+        </include>
+        
+        <!-- Risk assessment parameters -->
+        <rosparam param="/$(arg veh)/navigation_node/risk_assessment_enabled">true</rosparam>
+        <rosparam param="/$(arg veh)/navigation_node/collision_time_threshold">3.0</rosparam>
+        <rosparam param="/$(arg veh)/navigation_node/safe_distance_threshold">0.5</rosparam>
+        <rosparam param="/$(arg veh)/navigation_node/avoidance_enabled">true</rosparam>
+        <rosparam param="/$(arg veh)/navigation_node/lane_change_enabled">false</rosparam>
+    </group>
+    
+    <!-- Enhanced FSM with Safety Monitoring -->
+    <group>
+        <include file="$(find fsm)/launch/fsm_node.launch">
+            <arg name="veh" value="$(arg veh)"/>
+            <arg name="config" value="$(arg config)"/>
+            <arg name="param_file_name" value="$(arg fsm_file_name)"/>
+        </include>
+        
+        <!-- Enhanced safety monitoring -->
+        <rosparam param="/$(arg veh)/fsm_node/safety_monitoring_enabled">$(arg safety_monitoring)</rosparam>
+        <rosparam param="/$(arg veh)/fsm_node/hardware_monitoring_enabled">true</rosparam>
+        <rosparam param="/$(arg veh)/fsm_node/sensor_validation_enabled">true</rosparam>
+        <rosparam param="/$(arg veh)/fsm_node/emergency_stop_enabled">true</rosparam>
+        <rosparam param="/$(arg veh)/fsm_node/cpu_warning_threshold">75.0</rosparam>
+        <rosparam param="/$(arg veh)/fsm_node/memory_warning_threshold">85.0</rosparam>
+    </group>
+    
+    <!-- Enhanced Coordination System -->
+    <group>
+        <include file="$(find explicit_coordinator)/launch/coordination_ETHZ17.launch">
+            <arg name="veh" value="$(arg veh)"/>
+            <arg name="config" value="$(arg config)"/>
+        </include>
+        
+        <!-- Behavior arbitration parameters -->
+        <rosparam param="/$(arg veh)/coordinator_node/behavior_arbitration_enabled">true</rosparam>
+        <rosparam param="/$(arg veh)/coordinator_node/arbitration_strategy">safety_first</rosparam>
+        <rosparam param="/$(arg veh)/coordinator_node/max_decision_time">0.5</rosparam>
+        <rosparam param="/$(arg veh)/coordinator_node/conflict_resolution_timeout">1.0</rosparam>
+    </group>
+    
+    <!-- Enhanced LED System with Emergency Patterns -->
+    <group>
+        <include file="$(find led_emitter)/launch/led_emitter_node.launch">
+            <arg name="veh" value="$(arg veh)"/>
+            <arg name="config" value="$(arg config)"/>
+        </include>
+        
+        <!-- Emergency response patterns -->
+        <rosparam param="/$(arg veh)/led_emitter_node/emergency_patterns_enabled">true</rosparam>
+        <rosparam param="/$(arg veh)/led_emitter_node/lane_change_signaling_enabled">false</rosparam>
+        <rosparam param="/$(arg veh)/led_emitter_node/safety_alert_patterns_enabled">true</rosparam>
+    </group>
+    
+    <!-- Performance Monitoring and Optimization -->
+    <group if="$(arg performance_optimization)">
+        <node name="performance_monitor" pkg="duckietown_demos" type="system_performance_monitor.py" output="screen">
+            <param name="veh" value="$(arg veh)"/>
+            <param name="monitoring_frequency" value="1.0"/>
+            <param name="enable_optimization" value="true"/>
+            <param name="target_fps" value="15"/>
+            <param name="memory_limit" value="1536"/>
+            <param name="cpu_optimization" value="true"/>
+        </node>
+        
+        <node name="integration_coordinator" pkg="duckietown_demos" type="integration_coordinator_node.py" output="screen">
+            <param name="veh" value="$(arg veh)"/>
+            <param name="coordination_frequency" value="2.0"/>
+            <param name="health_check_interval" value="5.0"/>
+            <param name="enable_auto_recovery" value="true"/>
+        </node>
+    </group>
+    
+    <!-- Anti-Instagram Color Correction -->
+    <group if="$(arg anti_instagram)">
+        <remap from="anti_instagram_node/uncorrected_image/compressed" to="camera_node/image/compressed"/>
+        <include file="$(find anti_instagram)/launch/anti_instagram_node.launch">
+            <arg name="veh" value="$(arg veh)"/>
+            <arg name="config" value="$(arg config)"/>
+        </include>
+    </group>
+    
+    <!-- Visualization and Debugging -->
+    <group if="$(arg visualization)">
+        <include file="$(find visualization_tools)/launch/visualization_node.launch">
+            <arg name="veh" value="$(arg veh)"/>
+            <arg name="config" value="$(arg config)"/>
+        </include>
+    </group>
+    
+    <!-- Statistics and Logging -->
+    <group if="$(arg statistics)">
+        <node name="statistics_logger" pkg="duckietown_demos" type="integration_data_logger.py" output="screen">
+            <param name="veh" value="$(arg veh)"/>
+            <param name="log_frequency" value="0.1"/>
+            <param name="enable_performance_logging" value="true"/>
+            <param name="enable_safety_logging" value="true"/>
+        </node>
+    </group>
+    
+    <!-- System Health Monitor -->
+    <node name="health_monitor" pkg="duckietown_demos" type="enhanced_lane_detection_monitor.py" output="screen">
+        <param name="veh" value="$(arg veh)"/>
+        <param name="monitoring_interval" value="10.0"/>
+        <param name="alert_thresholds_file" value="$(find duckietown_demos)/config/performance_optimization.yaml"/>
+    </node>
+    
+</launch>

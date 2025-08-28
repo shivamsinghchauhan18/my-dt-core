@@ -1,0 +1,62 @@
+cmake_minimum_required(VERSION 3.0.2)
+project(duckietown_msgs)
+
+find_package(catkin REQUIRED COMPONENTS
+  message_generation
+  std_msgs
+  geometry_msgs
+  sensor_msgs
+)
+
+## Generate messages in the 'msg' folder
+add_message_files(
+  FILES
+  # Existing messages (referenced in codebase)
+  LanePose.msg
+  SegmentList.msg
+  Segment.msg
+  FSMState.msg
+  BoolStamped.msg
+  WheelsCmdStamped.msg
+  Twist2DStamped.msg
+  VehicleCorners.msg
+  StopLineReading.msg
+  CoordinationClearance.msg
+  CoordinationSignal.msg
+  SignalsDetection.msg
+  AprilTagsWithInfos.msg
+  MaintenanceState.msg
+  # New messages for advanced autonomous system
+  ObjectDetectionArray.msg
+  ObjectDetection.msg
+  SafetyStatus.msg
+  AdvancedLanePose.msg
+  LaneCurves.msg
+  LaneCurve.msg
+)
+
+## Generate services in the 'srv' folder
+add_service_files(
+  FILES
+  ChangePattern.srv
+)
+
+## Generate added messages and services with any dependencies listed here
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+  geometry_msgs
+  sensor_msgs
+)
+
+catkin_package(
+  CATKIN_DEPENDS message_runtime std_msgs geometry_msgs sensor_msgs
+)
+# Enhanced message namespace
+file(GLOB ENHANCED_MSG_FILES "msg/enhanced/*.msg")
+if(ENHANCED_MSG_FILES)
+  add_message_files(
+    DIRECTORY msg/enhanced
+    FILES ${ENHANCED_MSG_FILES}
+  )
+endif()
