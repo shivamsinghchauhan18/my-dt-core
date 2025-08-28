@@ -22,10 +22,22 @@ from typing import Dict, List, Optional, Tuple, Any
 from std_msgs.msg import String, Bool, Float32
 from sensor_msgs.msg import Image, CompressedImage
 from geometry_msgs.msg import Twist
-from duckietown_msgs.msg import (
-    LanePose, AdvancedLanePose, ObjectDetectionArray, 
-    SafetyStatus, CoordinationSignal, FSMState
-)
+try:
+    from duckietown_msgs.msg import (
+        LanePose, AdvancedLanePose, ObjectDetectionArray, 
+        SafetyStatus, CoordinationSignal, FSMState
+    )
+except ImportError:
+    # Fallback: import what's available and create placeholders
+    from duckietown_msgs.msg import LanePose, FSMState
+    try:
+        from duckietown_msgs.msg import AdvancedLanePose, ObjectDetectionArray, SafetyStatus, CoordinationSignal
+    except ImportError:
+        # Create placeholder classes for missing messages
+        from std_msgs.msg import String as AdvancedLanePose
+        from std_msgs.msg import String as ObjectDetectionArray
+        from std_msgs.msg import String as SafetyStatus
+        from std_msgs.msg import String as CoordinationSignal
 
 
 class EnhancedSystemValidator:

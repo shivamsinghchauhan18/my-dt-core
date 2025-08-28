@@ -21,7 +21,16 @@ from typing import Dict, List, Optional, Tuple, Any
 
 # ROS imports
 from std_msgs.msg import String, Bool
-from duckietown_msgs.msg import FSMState, SafetyStatus
+try:
+    from duckietown_msgs.msg import FSMState, SafetyStatus
+except ImportError:
+    # Fallback: try to import SafetyStatus and other enhanced messages
+    from duckietown_msgs.msg import FSMState
+    try:
+        from duckietown_msgs.msg import SafetyStatus
+    except ImportError:
+        # Create a placeholder SafetyStatus if not available
+        from std_msgs.msg import String as SafetyStatus
 
 
 class EnhancedSystemStartupManager:
