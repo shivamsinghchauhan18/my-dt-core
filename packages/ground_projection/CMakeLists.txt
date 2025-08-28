@@ -11,7 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   std_msgs
   geometry_msgs
-  image_geometry
+  # image_geometry  # Commented out - not available in container
 )
 
 catkin_python_setup()
