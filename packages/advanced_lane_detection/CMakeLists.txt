@@ -7,21 +7,21 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   geometry_msgs
   cv_bridge
-  message_generation
+  # message_generation  # Commented out since no messages defined
 )
 
-add_message_files(
-  FILES
-  LaneCurve.msg
-  LaneCurves.msg
-)
+# add_message_files(
+#   FILES
+#   LaneCurve.msg
+#   LaneCurves.msg
+# )
 
-generate_messages(
-  DEPENDENCIES
-  std_msgs
-  geometry_msgs
-)
+# generate_messages(
+#   DEPENDENCIES
+#   std_msgs
+#   geometry_msgs
+# )
 
 catkin_package(
-  CATKIN_DEPENDS rospy std_msgs sensor_msgs geometry_msgs cv_bridge message_runtime
+  CATKIN_DEPENDS rospy std_msgs sensor_msgs geometry_msgs cv_bridge # message_runtime
 )
