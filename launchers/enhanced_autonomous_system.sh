@@ -46,18 +46,18 @@ export ROS_MASTER_URI=${ROS_MASTER_URI:-"http://localhost:11311"}
 export ROS_IP=${ROS_IP:-"127.0.0.1"}
 
 
-# Ensure ROS_PACKAGE_PATH includes overlay packages
-if [ -d "/code/enhance_ws/src" ]; then
-    export ROS_PACKAGE_PATH="/code/enhance_ws/src:${ROS_PACKAGE_PATH}"
+# Ensure ROS_PACKAGE_PATH includes overlay packages (enhanced_ws only)
+if [ -d "/code/enhanced_ws/src" ]; then
+    export ROS_PACKAGE_PATH="/code/enhanced_ws/src:${ROS_PACKAGE_PATH}"
 fi
 if [ -d "/code/catkin_ws/src" ]; then
     export ROS_PACKAGE_PATH="/code/catkin_ws/src:${ROS_PACKAGE_PATH}"
 fi
 
 # Python Path Setup for Enhanced Packages
-if [ -d "/code/enhance_ws/src/my-dt-core/packages" ]; then
-    export PYTHONPATH="/code/enhance_ws/src/my-dt-core/packages:$PYTHONPATH"
-    log_info "Added enhance_ws packages to PYTHONPATH"
+if [ -d "/code/enhanced_ws/src/my-dt-core/packages" ]; then
+    export PYTHONPATH="/code/enhanced_ws/src/my-dt-core/packages:$PYTHONPATH"
+    log_info "Added enhanced_ws packages to PYTHONPATH"
 elif [ -d "$ROOT_DIR/packages" ]; then
     export PYTHONPATH="$ROOT_DIR/packages:$PYTHONPATH"
     log_info "Added local packages to PYTHONPATH"
@@ -108,7 +108,7 @@ validate_environment() {
         exit 1
     fi
 
-    # If object detection is enabled, verify torch/ultralytics
+    # If object detection is enabled, verify torch/ultralytics; if missing, auto-disable
     if [ "$ENABLE_OBJECT_DETECTION" = "true" ]; then
         python3 - <<'PY'
 import sys
@@ -121,9 +121,8 @@ sys.exit(0)
 PY
         status=$?
         if [ "$status" -ne 0 ]; then
-            log_error "Object detection enabled but torch/ultralytics not importable."
-            log_error "Install dependencies or set ENABLE_OBJECT_DETECTION=false."
-            exit 1
+            log_warn "Object detection dependencies not available (torch/ultralytics). Disabling object detection for this run."
+            ENABLE_OBJECT_DETECTION="false"
         fi
     fi
     
@@ -134,9 +133,9 @@ PY
     fi
     
     # Check configuration file (detect workspace automatically with priority order)
-    if [ -f "/code/enhance_ws/src/my-dt-core/configurations.yaml" ]; then
-        CONFIG_FILE="/code/enhance_ws/src/my-dt-core/configurations.yaml"
-        log_info "Using enhance_ws configuration: $CONFIG_FILE"
+    if [ -f "/code/enhanced_ws/src/my-dt-core/configurations.yaml" ]; then
+        CONFIG_FILE="/code/enhanced_ws/src/my-dt-core/configurations.yaml"
+        log_info "Using enhanced_ws configuration: $CONFIG_FILE"
     elif [ -f "$ROOT_DIR/configurations.yaml" ]; then
         CONFIG_FILE="$ROOT_DIR/configurations.yaml"
         log_info "Using local configuration: $CONFIG_FILE"
@@ -144,8 +143,8 @@ PY
         CONFIG_FILE="/code/catkin_ws/src/dt-duckiebot-interface/my-dt-core/configurations.yaml"
         log_info "Using catkin_ws configuration: $CONFIG_FILE"
     else
-        log_error "Configuration file not found in any expected location"
-        log_error "Searched: /code/enhance_ws/src/my-dt-core/configurations.yaml, $ROOT_DIR/configurations.yaml, /code/catkin_ws/src/dt-duckiebot-interface/my-dt-core/configurations.yaml"
+    log_error "Configuration file not found in any expected location"
+        log_error "Searched: /code/enhanced_ws/src/my-dt-core/configurations.yaml, $ROOT_DIR/configurations.yaml, /code/catkin_ws/src/dt-duckiebot-interface/my-dt-core/configurations.yaml"
         exit 1
     fi
     
@@ -160,7 +159,7 @@ ensure_yolo_model() {
     # Candidate paths
     local candidates=(
         "$ROOT_DIR/packages/vehicle_detection/yolov5s.pt"
-        "/code/enhance_ws/src/my-dt-core/packages/vehicle_detection/yolov5s.pt"
+        "/code/enhanced_ws/src/my-dt-core/packages/vehicle_detection/yolov5s.pt"
     )
     local found=""
     for p in "${candidates[@]}"; do
@@ -248,9 +247,9 @@ load_system_configuration() {
     log_info "Loading system configuration..."
     
     # Load global configuration (detect workspace automatically with priority order)
-    if [ -f "/code/enhance_ws/src/my-dt-core/configurations.yaml" ]; then
-        CONFIG_FILE="/code/enhance_ws/src/my-dt-core/configurations.yaml"
-        log_info "Using enhance_ws configuration for loading: $CONFIG_FILE"
+    if [ -f "/code/enhanced_ws/src/my-dt-core/configurations.yaml" ]; then
+        CONFIG_FILE="/code/enhanced_ws/src/my-dt-core/configurations.yaml"
+        log_info "Using enhanced_ws configuration for loading: $CONFIG_FILE"
     elif [ -f "$ROOT_DIR/configurations.yaml" ]; then
         CONFIG_FILE="$ROOT_DIR/configurations.yaml"
         log_info "Using local configuration for loading: $CONFIG_FILE"

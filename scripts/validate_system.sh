@@ -58,7 +58,7 @@ check_workspace() {
     log_check "Checking workspace setup..."
     
     WORKSPACE_DIRS=(
-        "/code/enhance_ws"
+        "/code/enhanced_ws"
         "/code/catkin_ws"
     )
     
@@ -106,6 +106,7 @@ check_packages() {
     log_check "Checking enhanced packages..."
     
     REQUIRED_PACKAGES=(
+        "duckietown_enhanced_msgs"
         "vehicle_detection"
         "duckietown_demos"
         "navigation"
@@ -126,7 +127,7 @@ check_yolo_model() {
     log_check "Checking YOLO model..."
     
     MODEL_PATHS=(
-        "/code/enhance_ws/src/my-dt-core/packages/vehicle_detection/yolov5s.pt"
+        "/code/enhanced_ws/src/my-dt-core/packages/vehicle_detection/yolov5s.pt"
         "/code/catkin_ws/src/dt-duckiebot-interface/my-dt-core/packages/vehicle_detection/yolov5s.pt"
     )
     
@@ -150,13 +151,16 @@ check_yolo_model() {
 check_python_dependencies() {
     log_check "Checking Python dependencies..."
     
+    # Always required
     REQUIRED_MODULES=(
-        "torch"
-        "ultralytics"
         "cv2"
         "numpy"
         "rospy"
     )
+    # Conditionally required for object detection
+    if [ "${ENABLE_OBJECT_DETECTION:-true}" = "true" ]; then
+        REQUIRED_MODULES+=("torch" "ultralytics")
+    fi
     
     for module in "${REQUIRED_MODULES[@]}"; do
         if python3 -c "import $module" 2>/dev/null; then
@@ -172,9 +176,9 @@ check_permissions() {
     log_check "Checking file permissions..."
     
     EXECUTABLE_FILES=(
-        "/code/enhance_ws/src/my-dt-core/launchers/enhanced_autonomous_system.sh"
-        "/code/enhance_ws/src/my-dt-core/packages/vehicle_detection/src/enhanced_vehicle_detection_node.py"
-        "/code/enhance_ws/src/my-dt-core/packages/duckietown_demos/scripts/enhanced_system_startup.py"
+        "/code/enhanced_ws/src/my-dt-core/launchers/enhanced_autonomous_system.sh"
+        "/code/enhanced_ws/src/my-dt-core/packages/vehicle_detection/src/enhanced_vehicle_detection_node.py"
+        "/code/enhanced_ws/src/my-dt-core/packages/duckietown_demos/scripts/enhanced_system_startup.py"
     )
     
     for file in "${EXECUTABLE_FILES[@]}"; do

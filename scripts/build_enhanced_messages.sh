@@ -10,7 +10,7 @@ echo "======================================="
 
 # Detect a catkin workspace (prefer overlay if present)
 for CANDIDATE in \
-    "/code/enhance_ws" \
+    "/code/enhanced_ws" \
     "/code/catkin_ws"
 do
     if [ -d "$CANDIDATE/src" ]; then
@@ -20,7 +20,7 @@ do
 done
 
 if [ -z "$CATKIN_WS" ]; then
-    echo "❌ No catkin workspace found at /code/enhance_ws or /code/catkin_ws"
+    echo "❌ No catkin workspace found at /code/enhanced_ws or /code/catkin_ws"
     echo "   This script should be run inside the Duckietown container"
     exit 1
 fi

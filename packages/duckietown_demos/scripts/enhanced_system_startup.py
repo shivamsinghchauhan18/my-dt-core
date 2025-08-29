@@ -135,7 +135,7 @@ class EnhancedSystemStartupManager:
                     '..', '..', 'configurations.yaml'
                 ),
                 # Enhanced workspace (overlay)
-                '/code/enhance_ws/src/my-dt-core/configurations.yaml',
+                '/code/enhanced_ws/src/my-dt-core/configurations.yaml',
                 # Original dt-duckiebot-interface location
                 '/code/catkin_ws/src/dt-duckiebot-interface/my-dt-core/configurations.yaml',
                 # Relative to script directory

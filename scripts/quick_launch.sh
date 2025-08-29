@@ -66,7 +66,7 @@ fi
 log_info "Setting up workspace paths..."
 
 WORKSPACE_PATHS=(
-    "/code/enhance_ws"
+    "/code/enhanced_ws"
     "/code/catkin_ws"
     "$ROOT_DIR"
 )
@@ -113,11 +113,10 @@ if [ -f "/code/catkin_ws/devel/setup.bash" ]; then
     log_info "Sourced base workspace: /code/catkin_ws"
     SOURCED_ANY=true
 fi
-if [ -f "/code/enhance_ws/devel/setup.bash" ]; then
-    # Source overlay to override/extend
+if [ -f "/code/enhanced_ws/devel/setup.bash" ]; then
     # shellcheck disable=SC1091
-    source "/code/enhance_ws/devel/setup.bash"
-    log_info "Sourced overlay workspace: /code/enhance_ws"
+    source "/code/enhanced_ws/devel/setup.bash"
+    log_info "Sourced overlay workspace: /code/enhanced_ws"
     SOURCED_ANY=true
 fi
 if [ "$SOURCED_ANY" = false ]; then
@@ -138,9 +137,9 @@ if [ "$REBUILD" = true ]; then
         catkin build
         popd >/dev/null
     fi
-    if [ -d "/code/enhance_ws/src" ]; then
-        log_info "Rebuilding overlay workspace (/code/enhance_ws)"
-        pushd /code/enhance_ws >/dev/null
+    if [ -d "/code/enhanced_ws/src" ]; then
+        log_info "Rebuilding overlay workspace (/code/enhanced_ws)"
+        pushd /code/enhanced_ws >/dev/null
         catkin build
         popd >/dev/null
     fi
@@ -149,9 +148,9 @@ if [ "$REBUILD" = true ]; then
         # shellcheck disable=SC1091
         source "/code/catkin_ws/devel/setup.bash"
     fi
-    if [ -f "/code/enhance_ws/devel/setup.bash" ]; then
+    if [ -f "/code/enhanced_ws/devel/setup.bash" ]; then
         # shellcheck disable=SC1091
-        source "/code/enhance_ws/devel/setup.bash"
+        source "/code/enhanced_ws/devel/setup.bash"
     fi
     log_success "Rebuild complete and environments re-sourced"
 fi
@@ -163,8 +162,8 @@ export ROS_MASTER_URI="${ROS_MASTER_URI:-http://localhost:11311}"
 export ROS_IP="${ROS_IP:-127.0.0.1}"
 
 # Add packages to Python path (overlay first, then local)
-if [ -d "/code/enhance_ws/src/my-dt-core/packages" ]; then
-    export PYTHONPATH="/code/enhance_ws/src/my-dt-core/packages:$PYTHONPATH"
+if [ -d "/code/enhanced_ws/src/my-dt-core/packages" ]; then
+    export PYTHONPATH="/code/enhanced_ws/src/my-dt-core/packages:$PYTHONPATH"
 fi
 if [ -d "$ROOT_DIR/packages" ]; then
     export PYTHONPATH="$ROOT_DIR/packages:$PYTHONPATH"
@@ -175,7 +174,8 @@ log_success "Environment configured"
 # Step 5: Download YOLO model if needed
 log_info "Checking YOLO model..."
 MODEL_PATHS=(
-    "$ACTIVE_WORKSPACE/src/my-dt-core/packages/vehicle_detection/yolov5s.pt"
+    "/code/enhanced_ws/src/my-dt-core/packages/vehicle_detection/yolov5s.pt"
+    "/code/catkin_ws/src/dt-duckiebot-interface/my-dt-core/packages/vehicle_detection/yolov5s.pt"
     "$ROOT_DIR/packages/vehicle_detection/yolov5s.pt"
 )
 
@@ -250,8 +250,8 @@ log_info "Vehicle Name: $VEHICLE_NAME"
 if [ -d "/code/catkin_ws" ]; then
     log_info "Base Workspace: /code/catkin_ws"
 fi
-if [ -d "/code/enhance_ws" ]; then
-    log_info "Overlay Workspace: /code/enhance_ws"
+if [ -d "/code/enhanced_ws" ]; then
+    log_info "Overlay Workspace: /code/enhanced_ws"
 else
     log_info "Workspace: $ACTIVE_WORKSPACE"
 fi

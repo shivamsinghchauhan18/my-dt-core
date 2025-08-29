@@ -24,24 +24,24 @@ from duckietown_enhanced_msgs.msg import AdvancedLanePose
 class AdvancedLaneDetector:
 	def __init__(self):
 		self.node_name = rospy.get_name()
-	self.bridge = CvBridge()
+		self.bridge = CvBridge()
 
-	# Params
-	self.prediction_horizon = rospy.get_param("~prediction_horizon", 1.0)
-	self.roi_y_start = int(rospy.get_param("~roi_y_start", 0.5 * 240))  # default for 320x240
-	# meters per pixel scaling (approximate)
-	self.m_per_px_x = float(rospy.get_param("~meters_per_pixel_x", 0.003))
-	self.m_per_px_y = float(rospy.get_param("~meters_per_pixel_y", 0.003))
+		# Params
+		self.prediction_horizon = rospy.get_param("~prediction_horizon", 1.0)
+		self.roi_y_start = int(rospy.get_param("~roi_y_start", 0.5 * 240))  # default for 320x240
+		# meters per pixel scaling (approximate)
+		self.m_per_px_x = float(rospy.get_param("~meters_per_pixel_x", 0.003))
+		self.m_per_px_y = float(rospy.get_param("~meters_per_pixel_y", 0.003))
 
-	# HSV thresholds (tuneable)
-	self.yellow_lower = np.array(rospy.get_param("~yellow_lower", [15, 80, 80]), dtype=np.uint8)
-	self.yellow_upper = np.array(rospy.get_param("~yellow_upper", [40, 255, 255]), dtype=np.uint8)
-	self.white_lower = np.array(rospy.get_param("~white_lower", [0, 0, 200]), dtype=np.uint8)
-	self.white_upper = np.array(rospy.get_param("~white_upper", [180, 40, 255]), dtype=np.uint8)
+		# HSV thresholds (tuneable)
+		self.yellow_lower = np.array(rospy.get_param("~yellow_lower", [15, 80, 80]), dtype=np.uint8)
+		self.yellow_upper = np.array(rospy.get_param("~yellow_upper", [40, 255, 255]), dtype=np.uint8)
+		self.white_lower = np.array(rospy.get_param("~white_lower", [0, 0, 200]), dtype=np.uint8)
+		self.white_upper = np.array(rospy.get_param("~white_upper", [180, 40, 255]), dtype=np.uint8)
 
-	# I/O
-	self.sub_image = rospy.Subscriber("~image", Image, self.cb_image, queue_size=1)
-	self.pub_pose = rospy.Publisher("~advanced_lane_pose", AdvancedLanePose, queue_size=1)
+		# I/O
+		self.sub_image = rospy.Subscriber("~image", Image, self.cb_image, queue_size=1)
+		self.pub_pose = rospy.Publisher("~advanced_lane_pose", AdvancedLanePose, queue_size=1)
 
 	def cb_image(self, msg: Image):
 		t0 = time.time()
