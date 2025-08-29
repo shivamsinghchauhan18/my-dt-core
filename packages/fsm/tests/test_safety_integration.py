@@ -11,7 +11,8 @@ from unittest.mock import Mock, patch, MagicMock
 
 import rospy
 import rostest
-from duckietown_msgs.msg import SafetyStatus, FSMState, LEDPattern
+from duckietown_enhanced_msgs.msg import SafetyStatus
+from duckietown_msgs.msg import FSMState, LEDPattern
 from std_msgs.msg import String, Float32, Bool
 from diagnostic_msgs.msg import DiagnosticArray
 from visualization_msgs.msg import MarkerArray

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import os
 import time
 import logging
 from typing import List, Dict, Tuple, Optional
@@ -14,7 +15,7 @@ from datetime import datetime
 
 import rospy
 from geometry_msgs.msg import Point32, Vector3
-from duckietown_msgs.msg import ObjectDetection, ObjectDetectionArray
+from duckietown_enhanced_msgs.msg import ObjectDetection, ObjectDetectionArray
 
 
 @dataclass
@@ -127,8 +128,40 @@ class OptimizedYOLODetector:
         load_start = time.time()
         
         try:
-            rospy.loginfo(f"[YOLO] Loading model from: {self.model_path}")
-            model = YOLO(self.model_path)
+            # Resolve model path - handle ROS package path or absolute path
+            resolved_model_path = self.model_path
+            
+            # If path starts with $(find, resolve it using rospack
+            if self.model_path.startswith("$(find"):
+                try:
+                    import subprocess
+                    # Extract package name and relative path
+                    path_parts = self.model_path.replace("$(find ", "").replace(")", "")
+                    if "/" in path_parts:
+                        package_name, relative_path = path_parts.split("/", 1)
+                        package_path = subprocess.check_output(['rospack', 'find', package_name]).decode().strip()
+                        resolved_model_path = os.path.join(package_path, relative_path)
+                    else:
+                        package_path = subprocess.check_output(['rospack', 'find', path_parts]).decode().strip()
+                        resolved_model_path = os.path.join(package_path, "yolov5s.pt")
+                except Exception as e:
+                    rospy.logwarn(f"[YOLO] Failed to resolve ROS package path: {e}")
+                    # Fallback to package directory
+                    package_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                    resolved_model_path = os.path.join(package_dir, "yolov5s.pt")
+            
+            # If path is relative, make it relative to package directory
+            elif not os.path.isabs(resolved_model_path):
+                package_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                resolved_model_path = os.path.join(package_dir, resolved_model_path)
+            
+            rospy.loginfo(f"[YOLO] Loading model from: {resolved_model_path}")
+            
+            # Check if model file exists
+            if not os.path.exists(resolved_model_path):
+                raise FileNotFoundError(f"YOLO model file not found: {resolved_model_path}")
+            
+            model = YOLO(resolved_model_path)
             
             # Move model to device
             model.to(self.device)
@@ -412,10 +445,24 @@ class OptimizedYOLODetector:
             self.performance_metrics.memory_usage_mb = process.memory_info().rss / 1024 / 1024
             self.performance_metrics.cpu_usage = process.cpu_percent()
             
-            # GPU utilization (if available)
-            if torch.cuda.is_available():
-                self.performance_metrics.gpu_utilization = torch.cuda.utilization()
-            else:
+            # GPU utilization (if available). torch does not expose utilization directly; guard carefully.
+            try:
+                if torch.cuda.is_available():
+                    # If pynvml is present, use it; otherwise, set to 0.0 to avoid crashes.
+                    import os
+                    util = 0.0
+                    try:
+                        import pynvml  # type: ignore
+                        pynvml.nvmlInit()
+                        handle = pynvml.nvmlDeviceGetHandleByIndex(0)
+                        util = float(pynvml.nvmlDeviceGetUtilizationRates(handle).gpu)
+                        pynvml.nvmlShutdown()
+                    except Exception:
+                        util = 0.0
+                    self.performance_metrics.gpu_utilization = util
+                else:
+                    self.performance_metrics.gpu_utilization = 0.0
+            except Exception:
                 self.performance_metrics.gpu_utilization = 0.0
     
     def _performance_monitor(self):

@@ -2,14 +2,14 @@
 # YOLO-based object detection with Duckietown-specific classes
 
 # Model Configuration
-model_path: "yolov5s.pt"  # Path to YOLO model file
+model_path: "$(find vehicle_detection)/yolov5s.pt"  # Path to YOLO model file - use ROS find for package-relative path
 confidence_threshold: 0.6  # Minimum confidence for detections (0.0-1.0)
 nms_threshold: 0.45       # Non-maximum suppression threshold (0.0-1.0)
 max_detections: 100       # Maximum number of detections per frame
 
 # Device Configuration
-device: "auto"            # Device to run inference on ('cpu', 'cuda', 'auto')
-tensorrt_enabled: true    # Enable TensorRT optimization (CUDA only)
+device: "cpu"             # Device to run inference on ('cpu', 'cuda', 'auto') - Use CPU for container compatibility
+tensorrt_enabled: false   # Enable TensorRT optimization (CUDA only) - Disabled for CPU mode
 
 # Processing Configuration
 process_frequency: 10.0   # Frequency at which to process images (Hz)

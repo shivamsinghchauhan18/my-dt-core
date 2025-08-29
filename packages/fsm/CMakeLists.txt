@@ -6,6 +6,7 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   duckietown_msgs # Every duckietown packages should use this.
   std_msgs
+  duckietown_enhanced_msgs
 )
 
 catkin_python_setup()

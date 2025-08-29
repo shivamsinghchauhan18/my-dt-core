@@ -445,9 +445,9 @@ class ObjectDetectionAvoidanceScenario(IntegrationTestScenario):
         )
         
         # YOLO Detector -> Risk Assessment
-        self.yolo_pub = self.yolo_node.create_publisher("/yolo_detector/detections", "duckietown_msgs/ObjectDetectionArray")
+    self.yolo_pub = self.yolo_node.create_publisher("/yolo_detector/detections", "duckietown_enhanced_msgs/ObjectDetectionArray")
         self.risk_sub = self.risk_assessment_node.create_subscriber(
-            "/yolo_detector/detections", "duckietown_msgs/ObjectDetectionArray", self._risk_assessment_callback
+            "/yolo_detector/detections", "duckietown_enhanced_msgs/ObjectDetectionArray", self._risk_assessment_callback
         )
         
         # Risk Assessment -> Path Planner

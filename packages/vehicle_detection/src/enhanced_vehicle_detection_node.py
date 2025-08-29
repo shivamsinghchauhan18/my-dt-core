@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
 
 import os
+import sys
 import rospy
 from cv_bridge import CvBridge
 from duckietown.dtros import DTParam, DTROS, NodeType, ParamType
-from duckietown_msgs.msg import ObjectDetectionArray
+from duckietown_enhanced_msgs.msg import ObjectDetectionArray
 from sensor_msgs.msg import CompressedImage
 from std_msgs.msg import String
 from datetime import datetime
+
+# Add current directory to Python path for relative imports
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, current_dir)
 
 from optimized_yolo_detector import OptimizedYOLODetector
 
@@ -36,7 +41,7 @@ class EnhancedVehicleDetectionNode(DTROS):
         ~image (:obj:`sensor_msgs.msg.CompressedImage`): Input image
 
     Publishers:
-        ~detections (:obj:`duckietown_msgs.msg.ObjectDetectionArray`): Detected objects
+        ~detections (:obj:`duckietown_enhanced_msgs.msg.ObjectDetectionArray`): Detected objects
         ~debug/detection_image/compressed (:obj:`sensor_msgs.msg.CompressedImage`): Debug image with detections
         ~performance_status (:obj:`std_msgs.msg.String`): Performance monitoring information
     """

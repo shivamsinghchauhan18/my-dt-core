@@ -9,7 +9,7 @@ from enum import IntEnum
 import numpy as np
 import rospy
 from geometry_msgs.msg import Point, Vector3
-from duckietown_msgs.msg import ObjectDetection, ObjectDetectionArray
+from duckietown_enhanced_msgs.msg import ObjectDetection, ObjectDetectionArray
 from image_processing.ground_projection_geometry import GroundProjectionGeometry, Point as GPPoint
 
 

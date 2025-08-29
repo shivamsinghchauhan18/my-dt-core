@@ -1,0 +1,36 @@
+# Enhanced Multi-Resolution AprilTag Configuration
+# Based on configurations.yaml enhanced_apriltag settings
+
+# Basic detection parameters
+nthreads: 1
+quad_decimate: 1.0
+quad_sigma: 0.0
+refine_edges: 1
+decode_sharpening: 0.25
+
+# Multi-resolution detection
+multi_resolution:
+  enable_multi_resolution: true
+  scale_factors: [0.5, 0.75, 1.0, 1.25, 1.5]
+  min_detection_size: 20
+  max_detection_size: 200
+
+# Distance estimation
+distance_estimation:
+  enable_distance_estimation: true
+  tag_size: 0.065  # meters
+  estimation_method: "pnp"
+  distance_filter_alpha: 0.3
+
+# Precision stop control
+precision_stop:
+  enable_precision_stop: true
+  target_stop_distance: 0.3  # meters
+  deceleration_start_distance: 1.0  # meters
+  stop_duration: 2.0  # seconds
+  stop_tolerance: 0.1  # meters
+  max_deceleration: 2.0  # m/s²
+
+# Tag families
+tag_family: "tag36h11"
+border: 1

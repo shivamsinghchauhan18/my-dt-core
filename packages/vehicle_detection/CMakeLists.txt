@@ -3,7 +3,7 @@ project(vehicle_detection)
 
 find_package(catkin REQUIRED COMPONENTS
   cv_bridge
-  duckietown_msgs
+  duckietown_enhanced_msgs
   geometry_msgs
   sensor_msgs
   image_processing
@@ -13,7 +13,9 @@ find_package(catkin REQUIRED COMPONENTS
 
 catkin_python_setup()
 
-catkin_package()
+catkin_package(
+  CATKIN_DEPENDS duckietown_enhanced_msgs
+)
 
 include_directories(
   ${catkin_INCLUDE_DIRS}

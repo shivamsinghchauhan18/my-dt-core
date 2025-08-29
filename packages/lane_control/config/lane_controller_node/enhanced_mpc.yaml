@@ -1,0 +1,41 @@
+# Enhanced MPC Lane Controller Configuration
+# Based on configurations.yaml enhanced_lane_following settings
+
+# Basic controller parameters
+k_d: -4.0
+k_theta: -2.0
+
+# MPC parameters  
+mpc:
+  enable_mpc: true
+  prediction_horizon: 10
+  control_horizon: 5
+  mpc_frequency: 20.0
+  optimization_tolerance: 1e-6
+  max_iterations: 100
+
+# Control constraints
+max_velocity: 0.5
+min_velocity: 0.0
+max_omega: 8.0
+min_omega: -8.0
+
+# Safety parameters
+d_offset: 0.0
+phi_offset: 0.0
+d_thres: 0.3
+phi_thres: 1.2
+
+# Performance optimization
+cross_track_deadband: 0.05
+heading_deadband: 0.1
+omega_ff: 0.0
+
+# Predictive control
+predictive_control:
+  enable_mpc: true
+  prediction_horizon: 10
+  control_horizon: 5
+  mpc_frequency: 20.0
+  optimization_tolerance: 1e-6
+  max_iterations: 100

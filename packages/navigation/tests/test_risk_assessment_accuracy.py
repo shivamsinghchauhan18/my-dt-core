@@ -7,7 +7,7 @@ from unittest.mock import Mock, patch
 
 import rospy
 from geometry_msgs.msg import Point, Vector3, Point32
-from duckietown_msgs.msg import ObjectDetection
+from duckietown_enhanced_msgs.msg import ObjectDetection
 from std_msgs.msg import Header
 
 # Import the module under test

@@ -11,7 +11,8 @@ from unittest.mock import Mock, patch, MagicMock
 
 import rospy
 import rostest
-from duckietown_msgs.msg import SafetyStatus, LEDPattern
+from duckietown_enhanced_msgs.msg import SafetyStatus
+from duckietown_msgs.msg import LEDPattern
 from std_msgs.msg import Bool
 from geometry_msgs.msg import Twist
 

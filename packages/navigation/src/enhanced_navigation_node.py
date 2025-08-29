@@ -6,7 +6,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 
 from duckietown.dtros import DTROS, NodeType, TopicType
-from duckietown_msgs.msg import ObjectDetectionArray, ObjectDetection
+from duckietown_enhanced_msgs.msg import ObjectDetectionArray, ObjectDetection
 from geometry_msgs.msg import Twist, Point, Vector3
 from std_msgs.msg import String, Header
 from sensor_msgs.msg import CompressedImage
@@ -43,7 +43,7 @@ class EnhancedNavigationNode(DTROS):
         ~performance_logging (:obj:`bool`): Enable performance metrics logging
 
     Subscribers:
-        ~object_detections (:obj:`duckietown_msgs.msg.ObjectDetectionArray`): Detected objects
+    ~object_detections (:obj:`duckietown_enhanced_msgs.msg.ObjectDetectionArray`): Detected objects
         ~vehicle_state (:obj:`geometry_msgs.msg.Twist`): Current vehicle velocity
         ~camera_image (:obj:`sensor_msgs.msg.CompressedImage`): Camera image for ground projection
 

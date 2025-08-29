@@ -15,7 +15,7 @@ from lane_change_decision_engine import (
     LaneChangeDecisionEngine, LaneChangeDecision, LaneChangeReason,
     LaneState, GapAnalysis, DecisionCriteria, DecisionMatrix
 )
-from duckietown_msgs.msg import ObjectDetection
+from duckietown_enhanced_msgs.msg import ObjectDetection
 from geometry_msgs.msg import Point, Vector3
 
 

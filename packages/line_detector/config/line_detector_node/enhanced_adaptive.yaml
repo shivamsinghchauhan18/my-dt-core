@@ -1,0 +1,36 @@
+# Enhanced Adaptive Line Detector Configuration
+# Based on configurations.yaml enhanced_lane_following settings
+
+# Image processing parameters
+image_size: [160, 120]
+top_cutoff: 40
+
+# Enhanced adaptive thresholding
+adaptive_detection:
+  enable_adaptive_thresholds: true
+  lighting_adaptation_rate: 0.1
+  threshold_update_frequency: 5.0
+  min_threshold: 50
+  max_threshold: 200
+
+# HSV color detection for lines
+hsv:
+  yellow:
+    low: [25, 140, 100]
+    high: [45, 255, 255]
+  white:
+    low: [0, 0, 150]
+    high: [180, 60, 255]
+
+# Temporal consistency filtering
+temporal_filtering:
+  enable_temporal_consistency: true
+  consistency_window_size: 5
+  consistency_threshold: 0.7
+  temporal_weight_decay: 0.9
+
+# Edge detection parameters
+canny_thresholds: [80, 200]
+hough_threshold: 2
+hough_min_line_length: 3
+hough_max_line_gap: 1

@@ -1,80 +1,89 @@
 #!/bin/bash
 
 # Build Enhanced Messages Script
-# Ensures that enhanced duckietown_msgs are properly built and available
+# Ensures that duckietown_enhanced_msgs are properly built and available
 
 set -e
 
-echo "🔧 Building Enhanced Duckietown Messages..."
-echo "=========================================="
+echo "🔧 Building duckietown_enhanced_msgs..."
+echo "======================================="
 
-# Check if we're in a catkin workspace
-if [ -d "/code/catkin_ws" ]; then
-    CATKIN_WS="/code/catkin_ws"
-    echo "✓ Found catkin workspace at: $CATKIN_WS"
-else
-    echo "❌ No catkin workspace found at /code/catkin_ws"
-    echo "   This script should be run inside a Duckietown Docker container"
+# Detect a catkin workspace (prefer overlay if present)
+for CANDIDATE in \
+    "/code/enhance_ws" \
+    "/code/catkin_ws"
+do
+    if [ -d "$CANDIDATE/src" ]; then
+        CATKIN_WS="$CANDIDATE"
+        break
+    fi
+done
+
+if [ -z "$CATKIN_WS" ]; then
+    echo "❌ No catkin workspace found at /code/enhance_ws or /code/catkin_ws"
+    echo "   This script should be run inside the Duckietown container"
     exit 1
 fi
 
-# Check if duckietown_msgs package exists
-if [ ! -d "$CATKIN_WS/src/dt-core/packages/duckietown_msgs" ]; then
-    echo "❌ duckietown_msgs package not found"
-    echo "   Expected at: $CATKIN_WS/src/dt-core/packages/duckietown_msgs"
+echo "✓ Using workspace: $CATKIN_WS"
+
+PKG_PATHS=(
+    "$CATKIN_WS/src/my-dt-core/packages/duckietown_enhanced_msgs"
+    "$CATKIN_WS/src/dt-duckiebot-interface/my-dt-core/packages/duckietown_enhanced_msgs"
+    "$CATKIN_WS/src/duckietown_enhanced_msgs"
+)
+
+PKG_DIR=""
+for p in "${PKG_PATHS[@]}"; do
+    if [ -d "$p" ]; then
+        PKG_DIR="$p"
+        break
+    fi
+done
+
+if [ -z "$PKG_DIR" ]; then
+    echo "❌ duckietown_enhanced_msgs package not found in workspace src"
     exit 1
 fi
 
-echo "✓ Found duckietown_msgs package"
+echo "✓ Found duckietown_enhanced_msgs at: $PKG_DIR"
 
-# Check for enhanced messages
-ENHANCED_MSG_DIR="$CATKIN_WS/src/dt-core/packages/duckietown_msgs/msg/enhanced"
-if [ -d "$ENHANCED_MSG_DIR" ]; then
-    echo "✓ Found enhanced messages directory"
-    echo "   Enhanced messages available:"
-    ls -la "$ENHANCED_MSG_DIR"/*.msg | sed 's/.*\//   - /'
-else
-    echo "❌ Enhanced messages directory not found"
-    exit 1
-fi
-
-# Build the duckietown_msgs package
-echo ""
-echo "🏗️  Building duckietown_msgs package..."
 cd "$CATKIN_WS"
 
 # Source ROS environment
-source /opt/ros/noetic/setup.bash
+if [ -f /opt/ros/noetic/setup.bash ]; then
+    # shellcheck disable=SC1091
+    source /opt/ros/noetic/setup.bash
+elif [ -f /opt/ros/melodic/setup.bash ]; then
+    # shellcheck disable=SC1091
+    source /opt/ros/melodic/setup.bash
+fi
 
-# Clean and build duckietown_msgs
-echo "   Cleaning previous build..."
-catkin clean duckietown_msgs -y || true
+echo "🏗️  Building duckietown_enhanced_msgs..."
+catkin build duckietown_enhanced_msgs
 
-echo "   Building duckietown_msgs..."
-catkin build duckietown_msgs
-
-# Source the workspace
 echo "   Sourcing workspace..."
-source devel/setup.bash
+# shellcheck disable=SC1091
+source "$CATKIN_WS/devel/setup.bash"
 
-# Verify the messages are available
-echo ""
 echo "🔍 Verifying enhanced messages..."
-python3 -c "
+python3 - <<'PY'
 import sys
-sys.path.insert(0, '$CATKIN_WS/devel/lib/python3/dist-packages')
 try:
-    from duckietown_msgs.msg import SafetyStatus, AdvancedLanePose, ObjectDetectionArray
-    print('✓ SafetyStatus message available')
-    print('✓ AdvancedLanePose message available')
-    print('✓ ObjectDetectionArray message available')
-    print('✅ All enhanced messages are working!')
-except ImportError as e:
-    print(f'❌ Import error: {e}')
-    print('Enhanced messages may not be properly built')
-    sys.exit(1)
-"
+        from duckietown_enhanced_msgs.msg import (
+                SafetyStatus, AdvancedLanePose, ObjectDetectionArray,
+                LaneCurve, LaneCurves, ObjectDetection
+        )
+        print('✓ SafetyStatus available')
+        print('✓ AdvancedLanePose available')
+        print('✓ ObjectDetectionArray available')
+        print('✓ LaneCurve available')
+        print('✓ LaneCurves available')
+        print('✓ ObjectDetection available')
+        print('✅ duckietown_enhanced_msgs ready!')
+except Exception as e:
+        print('❌ Verification failed:', e)
+        sys.exit(1)
+PY
 
-echo ""
-echo "✅ Enhanced duckietown_msgs build completed successfully!"
-echo "   You can now run the enhanced autonomous system."
+echo "✅ Build completed successfully."

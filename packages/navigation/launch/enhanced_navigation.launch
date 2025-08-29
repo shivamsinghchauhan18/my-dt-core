@@ -13,7 +13,8 @@
             <rosparam file="$(find navigation)/config/enhanced_navigation_node/$(arg param_file_name).yaml" command="load"/>
             
             <!-- Remap topics to connect with existing system -->
-            <remap from="~object_detections" to="yolo_detector/detections"/>
+            <!-- Use detections from the enhanced vehicle detection node -->
+            <remap from="~object_detections" to="enhanced_vehicle_detection_node/detections"/>
             <remap from="~vehicle_state" to="car_cmd_switch_node/cmd"/>
             <remap from="~camera_image" to="camera_node/image/compressed"/>
             

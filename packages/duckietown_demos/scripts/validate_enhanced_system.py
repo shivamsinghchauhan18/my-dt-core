@@ -31,7 +31,7 @@ except ImportError:
     # Fallback: import what's available and create placeholders
     from duckietown_msgs.msg import LanePose, FSMState
     try:
-        from duckietown_msgs.msg import AdvancedLanePose, ObjectDetectionArray, SafetyStatus, CoordinationSignal
+    from duckietown_enhanced_msgs.msg import AdvancedLanePose, ObjectDetectionArray, SafetyStatus
     except ImportError:
         # Create placeholder classes for missing messages
         from std_msgs.msg import String as AdvancedLanePose
@@ -87,14 +87,38 @@ class EnhancedSystemValidator:
     def load_configuration(self) -> Dict[str, Any]:
         """Load system configuration."""
         try:
-            config_path = os.path.join(
-                os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-                '..', '..', 'configurations.yaml'
-            )
+            # Try multiple possible locations for the configuration file
+            possible_paths = [
+                # Current directory structure
+                os.path.join(
+                    os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+                    '..', '..', 'configurations.yaml'
+                ),
+                # Enhanced workspace (overlay)
+                '/code/enhance_ws/src/my-dt-core/configurations.yaml',
+                # Original dt-duckiebot-interface location
+                '/code/catkin_ws/src/dt-duckiebot-interface/my-dt-core/configurations.yaml',
+                # Relative to script directory
+                os.path.join(
+                    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
+                    'configurations.yaml'
+                )
+            ]
+            
+            config_path = None
+            for path in possible_paths:
+                if os.path.exists(path):
+                    config_path = path
+                    break
+            
+            if config_path is None:
+                rospy.logwarn("Configuration file not found in any expected location, using default config")
+                return {}
             
             with open(config_path, 'r') as f:
                 config = yaml.safe_load(f)
             
+            rospy.loginfo(f"Configuration loaded successfully from: {config_path}")
             return config.get('configurations', {})
             
         except Exception as e:

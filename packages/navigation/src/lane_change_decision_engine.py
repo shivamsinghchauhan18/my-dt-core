@@ -9,7 +9,7 @@ from enum import Enum
 from datetime import datetime
 
 from geometry_msgs.msg import Point, Vector3
-from duckietown_msgs.msg import ObjectDetection
+from duckietown_enhanced_msgs.msg import ObjectDetection
 
 
 class LaneChangeDecision(Enum):

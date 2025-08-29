@@ -9,33 +9,8 @@ find_package(catkin REQUIRED COMPONENTS
 )
 
 # Only include enhanced custom messages to avoid conflicts
-file(GLOB ENHANCED_MSG_FILES "msg/enhanced/*.msg")
+# In the overlay, do not rebuild or redefine messages to avoid conflicts with the
+# official dt-core duckietown_msgs. Enhanced custom messages live in
+# 'duckietown_enhanced_msgs'. This package only provides utilities.
 
-if(ENHANCED_MSG_FILES)
-  # Extract just the filename from the full path for add_message_files
-  set(ENHANCED_MSG_NAMES "")
-  foreach(msg_file ${ENHANCED_MSG_FILES})
-    get_filename_component(msg_name ${msg_file} NAME)
-    list(APPEND ENHANCED_MSG_NAMES ${msg_name})
-  endforeach()
-  
-  add_message_files(
-    DIRECTORY msg/enhanced
-    FILES ${ENHANCED_MSG_NAMES}
-  )
-  
-  message(STATUS "Adding enhanced messages: ${ENHANCED_MSG_NAMES}")
-else()
-  message(WARNING "No enhanced messages found in msg/enhanced/")
-endif()
-
-generate_messages(
-  DEPENDENCIES
-  std_msgs
-  geometry_msgs
-  sensor_msgs
-)
-
-catkin_package(
-  CATKIN_DEPENDS message_runtime std_msgs geometry_msgs sensor_msgs
-)
+catkin_package()

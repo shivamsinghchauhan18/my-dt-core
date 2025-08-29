@@ -7,7 +7,7 @@ import rospy
 import time
 from unittest.mock import Mock, patch, MagicMock
 from geometry_msgs.msg import Point32, Vector3
-from duckietown_msgs.msg import ObjectDetection, ObjectDetectionArray
+from duckietown_enhanced_msgs.msg import ObjectDetection, ObjectDetectionArray
 
 # Import the module under test
 import sys

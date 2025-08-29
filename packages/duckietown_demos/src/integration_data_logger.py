@@ -22,11 +22,12 @@ from typing import Dict, List, Optional, Any
 from std_msgs.msg import String, Header
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import CompressedImage
-from duckietown_msgs.msg import ObjectDetectionArray, LanePose, Twist2DStamped
+from duckietown_enhanced_msgs.msg import ObjectDetectionArray, SafetyStatus, PerformanceMetrics
+from duckietown_msgs.msg import LanePose, Twist2DStamped
 
 # Custom message types (fallback to basic types if not available)
 try:
-    from duckietown_msgs.msg import (
+    from duckietown_enhanced_msgs.msg import (
         RiskAssessmentStatus,
         SystemStatus,
         CoordinationLog

@@ -8,7 +8,7 @@ from unittest.mock import Mock, patch
 
 import rospy
 from geometry_msgs.msg import Point, Vector3, Twist
-from duckietown_msgs.msg import ObjectDetection
+from duckietown_enhanced_msgs.msg import ObjectDetection
 
 # Import the modules to test
 import sys

@@ -1,0 +1,28 @@
+# Precision Stop Configuration for Stop Line Filter
+# Based on configurations.yaml enhanced_apriltag settings
+
+# Basic stop line detection parameters
+stop_distance: 0.22  # m, how far the stop line is from the center of the robot
+min_segs: 2         # minimum segments to consider a stop line
+off_time: 5         # s, wait time before looking for a stop line again
+max_y: 0.3          # m, maximum y coordinate to consider a stop line
+
+# Precision stop control
+precision_stop:
+  enable_precision_stop: true
+  target_stop_distance: 0.3  # meters
+  deceleration_start_distance: 1.0  # meters
+  stop_duration: 2.0  # seconds
+  stop_tolerance: 0.1  # meters
+  max_deceleration: 2.0  # m/s²
+
+# AprilTag integration
+apriltag_integration:
+  enable_apriltag_stop: true
+  apriltag_stop_distance: 0.3
+  apriltag_stop_duration: 2.0
+
+# Image processing
+use_yellow_filter: true
+yellow_lower_hsv: [25, 140, 100]
+yellow_upper_hsv: [45, 255, 255]

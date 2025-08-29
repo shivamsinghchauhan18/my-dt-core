@@ -5,7 +5,8 @@ import rospy
 
 from duckietown_msgs.srv import SetCustomLEDPattern, ChangePattern
 from duckietown_msgs.srv import SetCustomLEDPatternResponse, ChangePatternResponse
-from duckietown_msgs.msg import LEDPattern, SafetyStatus
+from duckietown_msgs.msg import LEDPattern
+from duckietown_enhanced_msgs.msg import SafetyStatus
 from std_msgs.msg import ColorRGBA, Bool
 from geometry_msgs.msg import Twist
 

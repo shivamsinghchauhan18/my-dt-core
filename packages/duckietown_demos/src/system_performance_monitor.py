@@ -22,11 +22,12 @@ from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus, KeyValue
 
 # Custom message types (fallback to basic types if not available)
 try:
-    from duckietown_msgs.msg import PerformanceMetrics, SystemHealthStatus
+    from duckietown_enhanced_msgs.msg import PerformanceMetrics
+    from duckietown_msgs.msg import SystemHealthStatus  # if exists
 except ImportError:
     rospy.logwarn("Custom performance messages not available, using basic types")
-    PerformanceMetrics = String
-    SystemHealthStatus = String
+    from std_msgs.msg import String as PerformanceMetrics
+    from std_msgs.msg import String as SystemHealthStatus
 
 
 class SystemPerformanceMonitor:

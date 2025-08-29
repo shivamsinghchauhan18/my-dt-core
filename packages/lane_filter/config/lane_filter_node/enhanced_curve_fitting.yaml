@@ -1,0 +1,40 @@
+# Enhanced Lane Filter with Curve Fitting Configuration
+# Based on configurations.yaml enhanced_lane_following settings
+
+# Mean and covariance for prediction
+mean_d_0: 0.0
+mean_phi_0: 0.0
+sigma_d_0: 0.1
+sigma_phi_0: 0.2
+
+# Prediction noise
+sigma_d_mask: 0.05
+sigma_phi_mask: 0.2
+
+# Update parameters  
+update_speed: 0.7
+delta_t: 0.02
+
+# Polynomial curve fitting
+curve_fitting:
+  enable_curve_fitting: true
+  polynomial_degree: 3
+  fitting_window_size: 20
+  curve_extrapolation_distance: 1.0
+  fitting_confidence_threshold: 0.8
+
+# Kalman filter settings
+curvature_res: 0.1
+phi_max: 1.5
+d_max: 3.0
+
+# Rejection thresholds
+max_phi: 1.2
+max_d: 2.0
+
+# Temporal consistency
+temporal_filtering:
+  enable_temporal_consistency: true
+  consistency_window_size: 5
+  consistency_threshold: 0.7
+  temporal_weight_decay: 0.9

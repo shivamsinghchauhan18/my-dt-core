@@ -6,7 +6,8 @@ Publishes safety status to multiple ROS topics and integrates with visualization
 
 import time
 import rospy
-from duckietown_msgs.msg import SafetyStatus, FSMState
+from duckietown_msgs.msg import FSMState
+from duckietown_enhanced_msgs.msg import SafetyStatus
 from std_msgs.msg import String, Float32, Bool
 from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus, KeyValue
 from visualization_msgs.msg import Marker, MarkerArray

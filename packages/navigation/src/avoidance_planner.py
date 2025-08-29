@@ -10,7 +10,7 @@ from datetime import datetime
 
 import rospy
 from geometry_msgs.msg import Twist, Point, Vector3
-from duckietown_msgs.msg import ObjectDetection
+from duckietown_enhanced_msgs.msg import ObjectDetection
 try:
     from duckietown_msgs.msg import LanePose
 except ImportError:
@@ -935,7 +935,7 @@ if __name__ == '__main__':
     planner = AvoidancePlanner()
     
     # Create test scenario
-    from duckietown_msgs.msg import ObjectDetection
+    from duckietown_enhanced_msgs.msg import ObjectDetection
     from geometry_msgs.msg import Point as ROSPoint
     
     test_detection = ObjectDetection()

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<launch>
+    <!-- Dynamic Lane Change System Launch File -->
+    
+    <arg name="veh" default="$(env VEHICLE_NAME)" doc="Name of vehicle"/>
+    <arg name="config" default="baseline" doc="Configuration mode"/>
+    <arg name="param_file_name" default="default" doc="Parameter file name"/>
+    
+    <group ns="$(arg veh)">
+        
+        <!-- Lane Change Planner -->
+        <node name="lane_change_planner" 
+              pkg="navigation" 
+              type="lane_change_planner.py" 
+              output="screen" 
+              clear_params="true">
+            
+            <rosparam command="load" file="$(find navigation)/config/lane_change_planner/$(arg param_file_name).yaml"/>
+            
+            <!-- Lane changing parameters -->
+            <param name="enable_lane_changing" value="true"/>
+            <param name="gap_analysis_distance" value="2.0"/>
+            <param name="safety_margin" value="0.5"/>
+            <param name="decision_frequency" value="2.0"/>
+            
+            <!-- Trajectory parameters -->
+            <param name="lane_change_duration" value="3.0"/>
+            <param name="max_lateral_acceleration" value="2.0"/>
+            <param name="trajectory_smoothness_factor" value="0.8"/>
+            <param name="polynomial_degree" value="5"/>
+            
+            <!-- LED signaling -->
+            <param name="enable_led_signaling" value="true"/>
+            <param name="signal_duration" value="1.0"/>
+            <param name="signal_frequency" value="2.0"/>
+            <param name="abort_signal_duration" value="0.5"/>
+            
+            <!-- Subscriptions -->
+            <remap from="~lane_pose" to="lane_filter_node/lane_pose"/>
+            <remap from="~object_detections" to="enhanced_vehicle_detection_node/detections"/>
+            <remap from="~car_cmd" to="car_cmd_switch_node/cmd"/>
+            
+            <!-- Publications -->
+            <remap from="~lane_change_cmd" to="lane_change_planner/cmd"/>
+            <remap from="~led_pattern" to="led_emitter_node/led_pattern"/>
+            
+        </node>
+        
+    </group>
+</launch>

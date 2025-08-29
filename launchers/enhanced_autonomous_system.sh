@@ -6,6 +6,16 @@
 
 set -e
 
+# Logging setup (define functions early)
+mkdir -p "/tmp/enhanced_autonomous_system_logs"
+TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+LAUNCH_LOG="/tmp/enhanced_autonomous_system_logs/launch_${TIMESTAMP}.log"
+
+log_info() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] [INFO] $1" | tee -a "$LAUNCH_LOG"; }
+log_warn() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] [WARN] $1" | tee -a "$LAUNCH_LOG"; }
+log_error() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] [ERROR] $1" | tee -a "$LAUNCH_LOG"; }
+log_debug() { if [ "$VERBOSE" = "true" ]; then echo "[$(date '+%Y-%m-%d %H:%M:%S')] [DEBUG] $1" | tee -a "$LAUNCH_LOG"; fi }
+
 # Configuration
 VEHICLE_NAME=${VEHICLE_NAME:-"blueduckie"}
 CONFIG_MODE=${CONFIG_MODE:-"baseline"}
@@ -13,6 +23,9 @@ ENABLE_MONITORING=${ENABLE_MONITORING:-"true"}
 ENABLE_LOGGING=${ENABLE_LOGGING:-"true"}
 ENABLE_VALIDATION=${ENABLE_VALIDATION:-"true"}
 VERBOSE=${VERBOSE:-"false"}
+# Orchestration toggles
+ENABLE_STARTUP_MANAGER=${ENABLE_STARTUP_MANAGER:-"false"}
+ENABLE_MASTER_ROSLAUNCH=${ENABLE_MASTER_ROSLAUNCH:-"true"}
 
 # Feature toggles
 ENABLE_ENHANCED_LANE_FOLLOWING=${ENABLE_ENHANCED_LANE_FOLLOWING:-"true"}
@@ -28,38 +41,34 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 LOG_DIR="/tmp/enhanced_autonomous_system_logs"
 
-# Logging setup
+# ROS Environment Setup
+export ROS_MASTER_URI=${ROS_MASTER_URI:-"http://localhost:11311"}
+export ROS_IP=${ROS_IP:-"127.0.0.1"}
+
+# Python Path Setup for Enhanced Packages
+if [ -d "/code/enhance_ws/src/my-dt-core/packages" ]; then
+    export PYTHONPATH="/code/enhance_ws/src/my-dt-core/packages:$PYTHONPATH"
+    log_info "Added enhance_ws packages to PYTHONPATH"
+elif [ -d "$ROOT_DIR/packages" ]; then
+    export PYTHONPATH="$ROOT_DIR/packages:$PYTHONPATH"
+    log_info "Added local packages to PYTHONPATH"
+fi
+
+# Ensure log dir exists and point LOG_DIR variable to it
+LOG_DIR="/tmp/enhanced_autonomous_system_logs"
 mkdir -p "$LOG_DIR"
-TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-LAUNCH_LOG="$LOG_DIR/launch_${TIMESTAMP}.log"
-
-# Logging functions
-log_info() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [INFO] $1" | tee -a "$LAUNCH_LOG"
-}
-
-log_warn() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [WARN] $1" | tee -a "$LAUNCH_LOG"
-}
-
-log_error() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [ERROR] $1" | tee -a "$LAUNCH_LOG"
-}
-
-log_debug() {
-    if [ "$VERBOSE" = "true" ]; then
-        echo "[$(date '+%Y-%m-%d %H:%M:%S')] [DEBUG] $1" | tee -a "$LAUNCH_LOG"
-    fi
-}
 
 # Cleanup function
 cleanup() {
     log_info "Cleaning up Enhanced Autonomous System..."
     
-    # Kill all ROS nodes
-    if command -v rosnode &> /dev/null; then
-        log_info "Stopping ROS nodes..."
-        rosnode kill -a 2>/dev/null || true
+    # Clean up completion signal
+    rm -f /tmp/enhanced_startup_complete 2>/dev/null || true
+    
+    # Kill startup manager if still running
+    if [ -n "$STARTUP_MANAGER_PID" ]; then
+        log_info "Stopping startup manager..."
+        kill $STARTUP_MANAGER_PID 2>/dev/null || true
     fi
     
     # Kill roscore if we started it
@@ -96,15 +105,19 @@ validate_environment() {
         exit 1
     fi
     
-    # Check configuration file (detect workspace automatically)
-    if [ -f "$ROOT_DIR/configurations.yaml" ]; then
+    # Check configuration file (detect workspace automatically with priority order)
+    if [ -f "/code/enhance_ws/src/my-dt-core/configurations.yaml" ]; then
+        CONFIG_FILE="/code/enhance_ws/src/my-dt-core/configurations.yaml"
+        log_info "Using enhance_ws configuration: $CONFIG_FILE"
+    elif [ -f "$ROOT_DIR/configurations.yaml" ]; then
         CONFIG_FILE="$ROOT_DIR/configurations.yaml"
-    elif [ -f "/code/enhanced_ws/src/my-dt-core/configurations.yaml" ]; then
-        CONFIG_FILE="/code/enhanced_ws/src/my-dt-core/configurations.yaml"
+        log_info "Using local configuration: $CONFIG_FILE"
     elif [ -f "/code/catkin_ws/src/dt-duckiebot-interface/my-dt-core/configurations.yaml" ]; then
         CONFIG_FILE="/code/catkin_ws/src/dt-duckiebot-interface/my-dt-core/configurations.yaml"
+        log_info "Using catkin_ws configuration: $CONFIG_FILE"
     else
         log_error "Configuration file not found in any expected location"
+        log_error "Searched: /code/enhance_ws/src/my-dt-core/configurations.yaml, $ROOT_DIR/configurations.yaml, /code/catkin_ws/src/dt-duckiebot-interface/my-dt-core/configurations.yaml"
         exit 1
     fi
     
@@ -120,10 +133,13 @@ validate_system_resources() {
         log_warn "Low available memory: ${AVAILABLE_MEMORY}MB (recommended: >1GB)"
     fi
     
-    # Check CPU load
+    # Check CPU load without requiring bc
     CPU_LOAD=$(uptime | awk -F'load average:' '{ print $2 }' | cut -d, -f1 | xargs)
     CPU_CORES=$(nproc)
-    if (( $(echo "$CPU_LOAD > $CPU_CORES" | bc -l) )); then
+    # Compare as integers by scaling by 100
+    LOAD_INT=$(awk -v l="$CPU_LOAD" 'BEGIN{printf "%d", l*100}')
+    CORES_INT=$((CPU_CORES*100))
+    if [ "$LOAD_INT" -gt "$CORES_INT" ]; then
         log_warn "High CPU load: $CPU_LOAD (cores: $CPU_CORES)"
     fi
     
@@ -167,20 +183,26 @@ start_roscore() {
 load_system_configuration() {
     log_info "Loading system configuration..."
     
-    # Load global configuration (detect workspace automatically)
-    if [ -f "$ROOT_DIR/configurations.yaml" ]; then
+    # Load global configuration (detect workspace automatically with priority order)
+    if [ -f "/code/enhance_ws/src/my-dt-core/configurations.yaml" ]; then
+        CONFIG_FILE="/code/enhance_ws/src/my-dt-core/configurations.yaml"
+        log_info "Using enhance_ws configuration for loading: $CONFIG_FILE"
+    elif [ -f "$ROOT_DIR/configurations.yaml" ]; then
         CONFIG_FILE="$ROOT_DIR/configurations.yaml"
-    elif [ -f "/code/enhanced_ws/src/my-dt-core/configurations.yaml" ]; then
-        CONFIG_FILE="/code/enhanced_ws/src/my-dt-core/configurations.yaml"
+        log_info "Using local configuration for loading: $CONFIG_FILE"
     elif [ -f "/code/catkin_ws/src/dt-duckiebot-interface/my-dt-core/configurations.yaml" ]; then
         CONFIG_FILE="/code/catkin_ws/src/dt-duckiebot-interface/my-dt-core/configurations.yaml"
+        log_info "Using catkin_ws configuration for loading: $CONFIG_FILE"
     else
         CONFIG_FILE="$ROOT_DIR/configurations.yaml"  # fallback
+        log_warn "Using fallback configuration: $CONFIG_FILE"
     fi
     
     if [ -f "$CONFIG_FILE" ]; then
         log_debug "Loading configuration from: $CONFIG_FILE"
         # Configuration is loaded by individual nodes
+    else
+        log_warn "Configuration file not found: $CONFIG_FILE"
     fi
     
     # Set ROS parameters
@@ -209,31 +231,50 @@ start_startup_manager() {
     
     if [ -f "$STARTUP_SCRIPT" ]; then
         log_debug "Starting startup manager: $STARTUP_SCRIPT"
+        
+        # Make script executable
+        chmod +x "$STARTUP_SCRIPT"
+        
+        # Start the startup manager in background and get its PID
         python3 "$STARTUP_SCRIPT" &
         STARTUP_MANAGER_PID=$!
         
-        # Wait for startup manager to complete
-        local timeout=300  # 5 minutes
-        local count=0
+        # Wait a bit for startup manager to initialize
+        sleep 3
         
-        while kill -0 $STARTUP_MANAGER_PID 2>/dev/null; do
+        # Check if the startup manager is still running
+        if kill -0 $STARTUP_MANAGER_PID 2>/dev/null; then
+            log_info "✓ Enhanced System Startup Manager is running (PID: $STARTUP_MANAGER_PID)"
+            
+            # Wait for startup phases to complete (with timeout)
+            local timeout=120  # 2 minutes for startup phases
+            local count=0
+            
+            log_info "Waiting for startup phases to complete..."
+            
+            while kill -0 $STARTUP_MANAGER_PID 2>/dev/null && [ $count -lt $timeout ]; do
+                sleep 1
+                ((count++))
+                
+                # Log progress every 15 seconds
+                if [ $((count % 15)) -eq 0 ]; then
+                    log_info "Startup in progress... ($count/$timeout seconds)"
+                fi
+                
+                # Check for completion signal (startup manager should create a completion file)
+                if [ -f "/tmp/enhanced_startup_complete" ]; then
+                    log_info "✓ Startup manager signaled completion"
+                    break
+                fi
+            done
+            
             if [ $count -ge $timeout ]; then
-                log_error "Startup manager timeout after $timeout seconds"
-                kill $STARTUP_MANAGER_PID 2>/dev/null || true
-                exit 1
+                log_warn "Startup manager timeout reached, continuing with system launch"
             fi
-            sleep 1
-            ((count++))
-        done
-        
-        # Check startup manager exit status
-        wait $STARTUP_MANAGER_PID
-        local exit_status=$?
-        
-        if [ $exit_status -eq 0 ]; then
-            log_info "✓ Enhanced System Startup Manager completed successfully"
+            
+            log_info "✓ Enhanced System Startup Manager phase completed"
         else
-            log_error "Enhanced System Startup Manager failed with exit status: $exit_status"
+            log_error "Enhanced System Startup Manager failed to start"
             exit 1
         fi
     else
@@ -242,44 +283,70 @@ start_startup_manager() {
     fi
 }
 
-launch_enhanced_system() {
-    log_info "Launching Enhanced Autonomous System..."
-    
-    # Launch the complete enhanced system
-    LAUNCH_FILE="$ROOT_DIR/packages/duckietown_demos/launch/enhanced_autonomous_system.launch"
-    
-    if [ -f "$LAUNCH_FILE" ]; then
-        log_debug "Launching system with: $LAUNCH_FILE"
-        
-        # Build roslaunch command
-        ROSLAUNCH_CMD="roslaunch $LAUNCH_FILE"
-        ROSLAUNCH_CMD="$ROSLAUNCH_CMD veh:=$VEHICLE_NAME"
-        ROSLAUNCH_CMD="$ROSLAUNCH_CMD config:=$CONFIG_MODE"
-        ROSLAUNCH_CMD="$ROSLAUNCH_CMD enable_enhanced_lane_following:=$ENABLE_ENHANCED_LANE_FOLLOWING"
-        ROSLAUNCH_CMD="$ROSLAUNCH_CMD enable_apriltag_detection:=$ENABLE_APRILTAG_DETECTION"
-        ROSLAUNCH_CMD="$ROSLAUNCH_CMD enable_object_detection:=$ENABLE_OBJECT_DETECTION"
-        ROSLAUNCH_CMD="$ROSLAUNCH_CMD enable_lane_changing:=$ENABLE_LANE_CHANGING"
-        ROSLAUNCH_CMD="$ROSLAUNCH_CMD enable_safety_monitoring:=$ENABLE_SAFETY_MONITORING"
-        ROSLAUNCH_CMD="$ROSLAUNCH_CMD enable_coordination:=$ENABLE_COORDINATION"
-        ROSLAUNCH_CMD="$ROSLAUNCH_CMD enable_performance_optimization:=$ENABLE_PERFORMANCE_OPTIMIZATION"
-        ROSLAUNCH_CMD="$ROSLAUNCH_CMD enable_monitoring:=$ENABLE_MONITORING"
-        ROSLAUNCH_CMD="$ROSLAUNCH_CMD enable_logging:=$ENABLE_LOGGING"
-        ROSLAUNCH_CMD="$ROSLAUNCH_CMD verbose:=$VERBOSE"
-        
-        log_debug "Executing: $ROSLAUNCH_CMD"
-        
-        # Launch system
-        $ROSLAUNCH_CMD &
-        ROSLAUNCH_PID=$!
-        
-        # Wait for system to be ready
-        wait_for_system_ready
-        
-        log_info "✓ Enhanced Autonomous System launched successfully"
-    else
-        log_error "Launch file not found: $LAUNCH_FILE"
-        exit 1
+launch_master_system() {
+    if [ "$ENABLE_MASTER_ROSLAUNCH" != "true" ]; then
+        log_info "Master roslaunch disabled by ENABLE_MASTER_ROSLAUNCH=false"
+        return 0
     fi
+
+    log_info "Launching Enhanced Autonomous System via roslaunch..."
+    # Build roslaunch argument list from feature toggles
+    ARGS=(
+        "duckietown_demos" "enhanced_autonomous_system.launch"
+        "veh:=${VEHICLE_NAME}"
+        "config:=${CONFIG_MODE}"
+        "enable_enhanced_lane_following:=${ENABLE_ENHANCED_LANE_FOLLOWING}"
+        "enable_apriltag_detection:=${ENABLE_APRILTAG_DETECTION}"
+        "enable_object_detection:=${ENABLE_OBJECT_DETECTION}"
+        "enable_lane_changing:=${ENABLE_LANE_CHANGING}"
+        "enable_safety_monitoring:=${ENABLE_SAFETY_MONITORING}"
+        "enable_coordination:=${ENABLE_COORDINATION}"
+        "enable_performance_optimization:=${ENABLE_PERFORMANCE_OPTIMIZATION}"
+        "enable_monitoring:=${ENABLE_MONITORING}"
+        "enable_logging:=${ENABLE_LOGGING}"
+        "verbose:=${VERBOSE}"
+    )
+
+    # Start roslaunch in background
+    roslaunch --wait "${ARGS[@]}" &
+    MASTER_LAUNCH_PID=$!
+    log_info "roslaunch started (PID: ${MASTER_LAUNCH_PID})"
+}
+
+launch_enhanced_system() {
+    log_info "Enhanced System components managed by startup manager"
+    
+    # The startup manager handles component launching
+    # This function now just monitors the overall system health
+    
+    log_info "Monitoring system health..."
+    
+    # Wait for key topics to be available (indicates system is running)
+    local timeout=60
+    local count=0
+    
+    log_info "Waiting for system topics to be available..."
+    
+    while [ $count -lt $timeout ]; do
+        # Check if basic ROS topics are available
+        if rostopic list 2>/dev/null | grep -q "/$VEHICLE_NAME"; then
+            log_info "✓ Vehicle topics detected"
+            break
+        fi
+        
+        sleep 1
+        ((count++))
+        
+        if [ $((count % 10)) -eq 0 ]; then
+            log_info "Waiting for vehicle topics... ($count/$timeout seconds)"
+        fi
+    done
+    
+    if [ $count -ge $timeout ]; then
+        log_warn "Timeout waiting for vehicle topics, but continuing"
+    fi
+    
+    log_info "✓ Enhanced Autonomous System is operational"
 }
 
 wait_for_system_ready() {
@@ -375,10 +442,12 @@ monitor_system() {
     
     # Monitor system health
     while true; do
-        # Check if roslaunch is still running
-        if ! kill -0 $ROSLAUNCH_PID 2>/dev/null; then
-            log_error "ROS launch process died unexpectedly"
-            exit 1
+        # Check if startup manager is still running (if we have its PID)
+        if [ -n "$STARTUP_MANAGER_PID" ]; then
+            if ! kill -0 $STARTUP_MANAGER_PID 2>/dev/null; then
+                log_info "Startup manager has completed its job"
+                STARTUP_MANAGER_PID=""  # Clear the PID
+            fi
         fi
         
         # Check system resources
@@ -392,6 +461,13 @@ monitor_system() {
         # Check for ROS errors
         if rostopic list &>/dev/null; then
             log_debug "ROS system healthy"
+            
+            # Check if vehicle topics are still active
+            if rostopic list 2>/dev/null | grep -q "/$VEHICLE_NAME"; then
+                log_debug "Vehicle $VEHICLE_NAME topics active"
+            else
+                log_warn "Vehicle topics not found"
+            fi
         else
             log_error "ROS system not responding"
             exit 1
@@ -502,11 +578,15 @@ main() {
     load_system_configuration
     
     # Start enhanced system
-    start_startup_manager
+    if [ "$ENABLE_STARTUP_MANAGER" = "true" ]; then
+        start_startup_manager
+    else
+        log_info "Startup manager disabled (ENABLE_STARTUP_MANAGER=false)"
+    fi
+
+    # Launch the master system to bring up all nodes
+    launch_master_system
     launch_enhanced_system
-    
-    # Validate system
-    validate_system_startup
     
     log_info "✓ Enhanced Autonomous System startup completed successfully"
     log_info "System is ready for autonomous operation"

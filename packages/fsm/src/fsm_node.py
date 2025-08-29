@@ -12,7 +12,8 @@ from dataclasses import dataclass, asdict
 from datetime import datetime
 
 import rospy
-from duckietown_msgs.msg import BoolStamped, FSMState, AprilTagDetectionArray, StopLineReading, SafetyStatus
+from duckietown_msgs.msg import BoolStamped, FSMState, AprilTagDetectionArray, StopLineReading
+from duckietown_enhanced_msgs.msg import SafetyStatus
 from duckietown_msgs.srv import SetFSMState, SetFSMStateResponse, ChangePattern
 from std_srvs.srv import SetBool
 from std_msgs.msg import String

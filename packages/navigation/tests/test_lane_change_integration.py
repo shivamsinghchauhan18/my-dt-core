@@ -96,10 +96,10 @@ sys.modules['geometry_msgs.msg'].Twist = MockTwist
 sys.modules['geometry_msgs.msg'].Point = MockPoint
 sys.modules['geometry_msgs.msg'].Vector3 = MockVector3
 
-sys.modules['duckietown_msgs'] = Mock()
-sys.modules['duckietown_msgs.msg'] = Mock()
-sys.modules['duckietown_msgs.msg'].ObjectDetection = MockObjectDetection
-sys.modules['duckietown_msgs.msg'].ObjectDetectionArray = MockObjectDetectionArray
+sys.modules['duckietown_enhanced_msgs'] = Mock()
+sys.modules['duckietown_enhanced_msgs.msg'] = Mock()
+sys.modules['duckietown_enhanced_msgs.msg'].ObjectDetection = MockObjectDetection
+sys.modules['duckietown_enhanced_msgs.msg'].ObjectDetectionArray = MockObjectDetectionArray
 
 sys.modules['sensor_msgs'] = Mock()
 sys.modules['sensor_msgs.msg'] = Mock()

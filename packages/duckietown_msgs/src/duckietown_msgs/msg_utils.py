@@ -6,7 +6,7 @@ Utility functions for working with Duckietown messages.
 import rospy
 from std_msgs.msg import Header
 from geometry_msgs.msg import Point32, Vector3
-from duckietown_msgs.msg import (
+from duckietown_enhanced_msgs.msg import (
     ObjectDetection, ObjectDetectionArray, SafetyStatus, 
     AdvancedLanePose, LaneCurves, LaneCurve
 )

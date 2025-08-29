@@ -92,7 +92,7 @@ The `msg_utils.py` module provides utility functions for converting between inte
 ```python
 #!/usr/bin/env python3
 import rospy
-from duckietown_msgs.msg import ObjectDetectionArray, SafetyStatus
+from duckietown_enhanced_msgs.msg import ObjectDetectionArray, SafetyStatus
 from duckietown_msgs.msg_utils import create_header
 
 # Create a safety status message

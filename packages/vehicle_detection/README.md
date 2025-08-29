@@ -117,7 +117,7 @@ risk_assessment:
 - `~image` (`sensor_msgs/CompressedImage`): Input camera image
 
 #### Published Topics
-- `~detections` (`duckietown_msgs/ObjectDetectionArray`): Detected objects with risk assessment
+- `~detections` (`duckietown_enhanced_msgs/ObjectDetectionArray`): Detected objects with risk assessment
 - `~debug/detection_image/compressed` (`sensor_msgs/CompressedImage`): Debug visualization
 - `~performance_status` (`std_msgs/String`): Performance monitoring information
 

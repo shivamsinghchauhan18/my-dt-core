@@ -1,0 +1,20 @@
+# Lane Change Planner default configuration
+
+enable_lane_changing: true
+
+# Decision engine
+gap_analysis_distance: 2.0   # meters
+safety_margin: 0.5           # meters
+decision_frequency: 2.0      # Hz
+
+# Trajectory generation
+lane_change_duration: 3.0    # seconds
+max_lateral_acceleration: 2.0
+trajectory_smoothness_factor: 0.8
+polynomial_degree: 5
+
+# Signaling
+enable_led_signaling: true
+signal_duration: 1.0         # seconds
+signal_frequency: 2.0        # Hz
+abort_signal_duration: 0.5   # seconds
