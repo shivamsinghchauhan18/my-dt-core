@@ -4,6 +4,7 @@ project(navigation)
 find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
+  sensor_msgs
   message_generation
   geometry_msgs
   duckietown_msgs
@@ -25,6 +26,7 @@ add_service_files(
 generate_messages(
   DEPENDENCIES
   std_msgs
+  sensor_msgs
   geometry_msgs
   duckietown_msgs
 )
@@ -33,7 +35,7 @@ generate_messages(
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES navigation
-  CATKIN_DEPENDS message_runtime std_msgs geometry_msgs duckietown_msgs
+  CATKIN_DEPENDS message_runtime std_msgs sensor_msgs geometry_msgs duckietown_msgs
 #  DEPENDS system_lib
 )
 
