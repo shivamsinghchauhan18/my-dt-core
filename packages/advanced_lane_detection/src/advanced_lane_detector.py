@@ -23,7 +23,7 @@ from duckietown_enhanced_msgs.msg import AdvancedLanePose
 
 class AdvancedLaneDetector:
 	def __init__(self):
-	self.node_name = rospy.get_name()
+		self.node_name = rospy.get_name()
 	self.bridge = CvBridge()
 
 	# Params
