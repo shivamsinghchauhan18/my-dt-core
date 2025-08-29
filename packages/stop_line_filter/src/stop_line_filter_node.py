@@ -346,17 +346,17 @@ class StopLineFilterNode(DTROS):
         self.precision_stops_executed = 0
         self.last_performance_log = time.time()
 
-        ## publishers and subscribers
-        self.sub_segs = rospy.Subscriber("~segment_list", SegmentList, self.cb_segments)
-        self.sub_lane = rospy.Subscriber("~lane_pose", LanePose, self.cb_lane_pose)
-        self.sub_mode = rospy.Subscriber("fsm_node/mode", FSMState, self.cb_state_change)
+    ## publishers and subscribers
+    self.sub_segs = rospy.Subscriber("~segment_list", SegmentList, self.cb_segments)
+    self.sub_lane = rospy.Subscriber("~lane_pose", LanePose, self.cb_lane_pose)
+    self.sub_mode = rospy.Subscriber("fsm_node/mode", FSMState, self.cb_state_change)
         
-        # Subscribe to AprilTag detections for precision stop control
-        self.sub_apriltag = rospy.Subscriber("/apriltag_detector_node/detections", 
-                                           rospy.AnyMsg, self.cb_apriltag_detections)
+    # Subscribe to AprilTag detections for precision stop control (respect namespace)
+    apriltag_topic = rospy.get_param('~apriltag_detections_topic', 'apriltag_detector_node/detections')
+    self.sub_apriltag = rospy.Subscriber(apriltag_topic, rospy.AnyMsg, self.cb_apriltag_detections)
         
-        self.pub_stop_line_reading = rospy.Publisher("~stop_line_reading", StopLineReading, queue_size=1)
-        self.pub_at_stop_line = rospy.Publisher("~at_stop_line", BoolStamped, queue_size=1)
+    self.pub_stop_line_reading = rospy.Publisher("~stop_line_reading", StopLineReading, queue_size=1)
+    self.pub_at_stop_line = rospy.Publisher("~at_stop_line", BoolStamped, queue_size=1)
         
         # Initialize precision stop controller
         if self.enable_precision_stop.value:

@@ -7,7 +7,8 @@ from datetime import datetime
 
 from duckietown.dtros import DTROS, NodeType, TopicType
 from duckietown_enhanced_msgs.msg import ObjectDetectionArray, ObjectDetection
-from geometry_msgs.msg import Twist, Point, Vector3
+from geometry_msgs.msg import Point, Vector3
+from duckietown_msgs.msg import Twist2DStamped
 from std_msgs.msg import String, Header
 from sensor_msgs.msg import CompressedImage
 
@@ -49,7 +50,7 @@ class EnhancedNavigationNode(DTROS):
 
     Publishers:
         ~risk_assessment (:obj:`std_msgs.msg.String`): Risk assessment results
-        ~navigation_command (:obj:`geometry_msgs.msg.Twist`): Navigation commands
+    ~navigation_command (:obj:`duckietown_msgs.msg.Twist2DStamped`): Navigation commands
         ~emergency_stop (:obj:`std_msgs.msg.String`): Emergency stop signals
         ~performance_metrics (:obj:`std_msgs.msg.String`): Performance monitoring data
     """
@@ -121,7 +122,7 @@ class EnhancedNavigationNode(DTROS):
         
         self.sub_vehicle_state = rospy.Subscriber(
             '~vehicle_state',
-            Twist,
+            Twist2DStamped,
             self.cb_vehicle_state,
             queue_size=1
         )
@@ -135,7 +136,7 @@ class EnhancedNavigationNode(DTROS):
         
         self.pub_navigation_command = rospy.Publisher(
             '~navigation_command',
-            Twist,
+            Twist2DStamped,
             queue_size=1
         )
         
@@ -200,7 +201,7 @@ class EnhancedNavigationNode(DTROS):
         # Trigger lane change evaluation if enabled
         self.evaluate_lane_change_opportunities()
     
-    def cb_vehicle_state(self, msg: Twist):
+    def cb_vehicle_state(self, msg: Twist2DStamped):
         """
         Callback for vehicle state updates.
         
@@ -209,18 +210,20 @@ class EnhancedNavigationNode(DTROS):
         """
         timestamp = time.time()
         
-        # Update vehicle state
-        self.current_vehicle_state.velocity = msg.linear
+    # Update vehicle state (map Twist2DStamped to internal state)
+    self.current_vehicle_state.velocity.x = msg.v
+    self.current_vehicle_state.velocity.y = 0.0
+    self.current_vehicle_state.velocity.z = 0.0
         self.current_vehicle_state.timestamp = timestamp
         
         # Calculate heading from angular velocity (simplified)
-        if abs(msg.angular.z) > 0.01:
-            self.current_vehicle_state.heading += msg.angular.z * 0.1  # Rough integration
+        if abs(msg.omega) > 0.01:
+            self.current_vehicle_state.heading += msg.omega * 0.1  # Rough integration
         
         if self.monitoring_enabled:
             rospy.logdebug(f"[EnhancedNavigationNode] [{timestamp:.3f}] Vehicle state updated:")
-            rospy.logdebug(f"  Linear velocity: ({msg.linear.x:.2f}, {msg.linear.y:.2f}, {msg.linear.z:.2f})")
-            rospy.logdebug(f"  Angular velocity: ({msg.angular.x:.2f}, {msg.angular.y:.2f}, {msg.angular.z:.2f})")
+            rospy.logdebug(f"  v: {msg.v:.2f} m/s")
+            rospy.logdebug(f"  omega: {msg.omega:.2f} rad/s")
             rospy.logdebug(f"  Estimated heading: {self.current_vehicle_state.heading:.2f} rad")
     
     def cb_risk_assessment_timer(self, event):
@@ -359,15 +362,15 @@ class EnhancedNavigationNode(DTROS):
                 rospy.logwarn(f"[EnhancedNavigationNode] Critical Object {i}: {detection.class_name} "
                              f"at {detection.distance:.2f}m (TTC: {risk_factors.time_to_collision:.2f}s)")
             
-            # Publish emergency stop command
+            # Publish emergency stop notification
             stop_msg = String()
             stop_msg.data = f"EMERGENCY_STOP: {reason} - {len(critical_objects)} critical objects"
             self.pub_emergency_stop.publish(stop_msg)
             
-            # Send zero velocity command
-            stop_command = Twist()
-            stop_command.linear.x = 0.0
-            stop_command.angular.z = 0.0
+            # Send zero velocity command (Twist2DStamped)
+            stop_command = Twist2DStamped()
+            stop_command.v = 0.0
+            stop_command.omega = 0.0
             self.pub_navigation_command.publish(stop_command)
     
     def trigger_intelligent_avoidance(self, risk_assessments: List, reason: str):
@@ -403,10 +406,15 @@ class EnhancedNavigationNode(DTROS):
                 avoidance_command = self.avoidance_planner.execute_trajectory(trajectory, timestamp)
                 
                 if avoidance_command:
-                    self.pub_navigation_command.publish(avoidance_command)
+                    # Convert geometry_msgs/Twist to Twist2DStamped before publishing
+                    avoidance_cmd_2d = Twist2DStamped()
+                    if hasattr(avoidance_command, 'linear') and hasattr(avoidance_command, 'angular'):
+                        avoidance_cmd_2d.v = getattr(avoidance_command.linear, 'x', 0.0)
+                        avoidance_cmd_2d.omega = getattr(avoidance_command.angular, 'z', 0.0)
+                    self.pub_navigation_command.publish(avoidance_cmd_2d)
                     rospy.loginfo(f"[EnhancedNavigationNode] [{timestamp:.3f}] Avoidance command sent:")
-                    rospy.loginfo(f"  Linear velocity: {avoidance_command.linear.x:.2f} m/s")
-                    rospy.loginfo(f"  Angular velocity: {avoidance_command.angular.z:.2f} rad/s")
+                    rospy.loginfo(f"  Linear velocity: {avoidance_cmd_2d.v:.2f} m/s")
+                    rospy.loginfo(f"  Angular velocity: {avoidance_cmd_2d.omega:.2f} rad/s")
                 else:
                     rospy.logwarn(f"[EnhancedNavigationNode] [{timestamp:.3f}] No avoidance command generated")
             else:
@@ -438,14 +446,13 @@ class EnhancedNavigationNode(DTROS):
                          f"at {detection.distance:.2f}m (Risk: {risk_level.name})")
         
         # Simple avoidance strategy - reduce speed
-        avoidance_command = Twist()
-        avoidance_command.linear.x = max(0.1, self.current_vehicle_state.velocity.x * 0.5)
-        avoidance_command.angular.z = 0.0  # Could implement steering avoidance here
+    avoidance_command = Twist2DStamped()
+    avoidance_command.v = max(0.1, self.current_vehicle_state.velocity.x * 0.5)
+    avoidance_command.omega = 0.0  # Could implement steering avoidance here
         
-        self.pub_navigation_command.publish(avoidance_command)
+    self.pub_navigation_command.publish(avoidance_command)
         
-        rospy.loginfo(f"[EnhancedNavigationNode] [{timestamp:.3f}] Simple avoidance command sent: "
-                     f"linear.x={avoidance_command.linear.x:.2f}")
+    rospy.loginfo(f"[EnhancedNavigationNode] [{timestamp:.3f}] Simple avoidance command sent: v={avoidance_command.v:.2f}")
     
     def publish_risk_assessment_results(self, risk_assessments: List, assessment_time: float):
         """

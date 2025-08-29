@@ -14,10 +14,10 @@ add_message_files(
     ObjectDetection.msg
     ObjectDetectionArray.msg
     SafetyStatus.msg
-  PerformanceMetrics.msg
-  SystemStatus.msg
-  RiskAssessmentStatus.msg
-  CoordinationLog.msg
+    PerformanceMetrics.msg
+    SystemStatus.msg
+    RiskAssessmentStatus.msg
+    CoordinationLog.msg
     AdvancedLanePose.msg
     LaneCurve.msg
     LaneCurves.msg

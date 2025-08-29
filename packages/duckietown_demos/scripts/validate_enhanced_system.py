@@ -31,7 +31,7 @@ except ImportError:
     # Fallback: import what's available and create placeholders
     from duckietown_msgs.msg import LanePose, FSMState
     try:
-    from duckietown_enhanced_msgs.msg import AdvancedLanePose, ObjectDetectionArray, SafetyStatus
+        from duckietown_enhanced_msgs.msg import AdvancedLanePose, ObjectDetectionArray, SafetyStatus
     except ImportError:
         # Create placeholder classes for missing messages
         from std_msgs.msg import String as AdvancedLanePose

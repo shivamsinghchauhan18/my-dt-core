@@ -28,6 +28,17 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+# Args
+REBUILD=false
+for arg in "$@"; do
+    case "$arg" in
+        --rebuild)
+            REBUILD=true
+            shift
+            ;;
+    esac
+done
+
 # Configuration
 VEHICLE_NAME=${VEHICLE_NAME:-"blueduckie"}
 
@@ -70,14 +81,14 @@ for ws_path in "${WORKSPACE_PATHS[@]}"; do
 done
 
 if [ -z "$ACTIVE_WORKSPACE" ]; then
-    # Try to find unbuild workspace and build it
+    # Try to find unbuilt workspace and build it
     for ws_path in "${WORKSPACE_PATHS[@]:0:2}"; do  # Only check container paths
         if [ -d "$ws_path/src" ]; then
             log_info "Found unbuilt workspace: $ws_path"
             log_info "Building workspace..."
             cd "$ws_path"
             source /opt/ros/noetic/setup.bash 2>/dev/null || source /opt/ros/melodic/setup.bash
-            catkin_make
+            catkin build
             if [ -f "$ws_path/devel/setup.bash" ]; then
                 ACTIVE_WORKSPACE="$ws_path"
                 log_success "Workspace built successfully: $ACTIVE_WORKSPACE"
@@ -116,6 +127,34 @@ if [ "$SOURCED_ANY" = false ]; then
     log_info "Sourced active workspace: $ACTIVE_WORKSPACE"
 fi
 log_success "Environment sourced"
+
+# Optional rebuild step
+if [ "$REBUILD" = true ]; then
+    echo
+    log_warn "--rebuild specified: rebuilding workspaces before launch"
+    if [ -d "/code/catkin_ws/src" ]; then
+        log_info "Rebuilding base workspace (/code/catkin_ws)"
+        pushd /code/catkin_ws >/dev/null
+        catkin build
+        popd >/dev/null
+    fi
+    if [ -d "/code/enhance_ws/src" ]; then
+        log_info "Rebuilding overlay workspace (/code/enhance_ws)"
+        pushd /code/enhance_ws >/dev/null
+        catkin build
+        popd >/dev/null
+    fi
+    # Re-source after build
+    if [ -f "/code/catkin_ws/devel/setup.bash" ]; then
+        # shellcheck disable=SC1091
+        source "/code/catkin_ws/devel/setup.bash"
+    fi
+    if [ -f "/code/enhance_ws/devel/setup.bash" ]; then
+        # shellcheck disable=SC1091
+        source "/code/enhance_ws/devel/setup.bash"
+    fi
+    log_success "Rebuild complete and environments re-sourced"
+fi
 
 # Step 4: Set environment variables
 log_info "Setting environment variables..."

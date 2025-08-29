@@ -45,6 +45,15 @@ LOG_DIR="/tmp/enhanced_autonomous_system_logs"
 export ROS_MASTER_URI=${ROS_MASTER_URI:-"http://localhost:11311"}
 export ROS_IP=${ROS_IP:-"127.0.0.1"}
 
+
+# Ensure ROS_PACKAGE_PATH includes overlay packages
+if [ -d "/code/enhance_ws/src" ]; then
+    export ROS_PACKAGE_PATH="/code/enhance_ws/src:${ROS_PACKAGE_PATH}"
+fi
+if [ -d "/code/catkin_ws/src" ]; then
+    export ROS_PACKAGE_PATH="/code/catkin_ws/src:${ROS_PACKAGE_PATH}"
+fi
+
 # Python Path Setup for Enhanced Packages
 if [ -d "/code/enhance_ws/src/my-dt-core/packages" ]; then
     export PYTHONPATH="/code/enhance_ws/src/my-dt-core/packages:$PYTHONPATH"
@@ -98,6 +107,25 @@ validate_environment() {
         log_error "Required Python dependencies not found."
         exit 1
     fi
+
+    # If object detection is enabled, verify torch/ultralytics
+    if [ "$ENABLE_OBJECT_DETECTION" = "true" ]; then
+        python3 - <<'PY'
+import sys
+try:
+    import torch  # noqa: F401
+    from ultralytics import YOLO  # noqa: F401
+except Exception:
+    sys.exit(1)
+sys.exit(0)
+PY
+        status=$?
+        if [ "$status" -ne 0 ]; then
+            log_error "Object detection enabled but torch/ultralytics not importable."
+            log_error "Install dependencies or set ENABLE_OBJECT_DETECTION=false."
+            exit 1
+        fi
+    fi
     
     # Check vehicle name
     if [ -z "$VEHICLE_NAME" ]; then
@@ -122,6 +150,42 @@ validate_environment() {
     fi
     
     log_info "✓ Environment validation passed"
+}
+
+ensure_yolo_model() {
+    if [ "$ENABLE_OBJECT_DETECTION" != "true" ]; then
+        return 0
+    fi
+    log_info "Ensuring YOLO model exists..."
+    # Candidate paths
+    local candidates=(
+        "$ROOT_DIR/packages/vehicle_detection/yolov5s.pt"
+        "/code/enhance_ws/src/my-dt-core/packages/vehicle_detection/yolov5s.pt"
+    )
+    local found=""
+    for p in "${candidates[@]}"; do
+        if [ -f "$p" ]; then
+            found="$p"; break
+        fi
+    done
+    if [ -n "$found" ]; then
+        log_info "YOLO model found at: $found"
+        return 0
+    fi
+    log_warn "YOLO model not found. Attempting download of yolov5s.pt..."
+    local target="$ROOT_DIR/packages/vehicle_detection/yolov5s.pt"
+    mkdir -p "$(dirname "$target")"
+    if command -v curl >/dev/null 2>&1; then
+        curl -L -o "$target" https://github.com/ultralytics/yolov5/releases/download/v7.0/yolov5s.pt || true
+    elif command -v wget >/dev/null 2>&1; then
+        wget -O "$target" https://github.com/ultralytics/yolov5/releases/download/v7.0/yolov5s.pt || true
+    fi
+    if [ -f "$target" ]; then
+        log_info "Downloaded YOLO model to $target"
+    else
+        log_error "Failed to obtain YOLO model. Place yolov5s.pt under packages/vehicle_detection/."
+        exit 1
+    fi
 }
 
 validate_system_resources() {
@@ -576,6 +640,7 @@ main() {
     # Start ROS infrastructure
     start_roscore
     load_system_configuration
+    ensure_yolo_model
     
     # Start enhanced system
     if [ "$ENABLE_STARTUP_MANAGER" = "true" ]; then

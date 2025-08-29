@@ -28,12 +28,12 @@ try:
     from duckietown_msgs.msg import FSMState
     from duckietown_enhanced_msgs.msg import SafetyStatus
 except ImportError:
-    # Fallback: try to import SafetyStatus and other enhanced messages
+    # Fallback: always ensure FSMState is available from duckietown_msgs
     from duckietown_msgs.msg import FSMState
     try:
-    from duckietown_enhanced_msgs.msg import SafetyStatus
+        from duckietown_enhanced_msgs.msg import SafetyStatus
     except ImportError:
-        # Create a placeholder SafetyStatus if not available
+        # Create a placeholder SafetyStatus if enhanced msgs are not available
         from std_msgs.msg import String as SafetyStatus
 
 

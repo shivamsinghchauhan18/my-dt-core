@@ -71,7 +71,7 @@
             <!-- Enhanced AprilTag Detection -->
             <include file="$(find apriltag)/launch/apriltag_detector_node.launch">
                 <arg name="veh" value="$(arg veh)"/>
-                <arg name="config" value="enhanced_multi_resolution"/>
+                <arg name="param_file_name" value="enhanced_multi_resolution"/>
             </include>
             
             <!-- AprilTag Post-processing -->
@@ -220,7 +220,7 @@
                 <!-- Topic remapping for integration -->
                 <remap from="~lane_pose" to="lane_filter_node/lane_pose"/>
                 <remap from="~apriltag_detections" to="apriltag_detector_node/detections"/>
-                <remap from="~object_detections" to="enhanced_vehicle_detection_node/detections"/>
+                <remap from="~yolo_detections" to="enhanced_vehicle_detection_node/detections"/>
                 <remap from="~navigation_command" to="enhanced_navigation_node/car_cmd"/>
                 <remap from="~lane_change_command" to="lane_change_planner/car_cmd"/>
                 <remap from="~safety_status" to="safety_status_publisher/safety_status"/>
