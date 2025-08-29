@@ -112,6 +112,13 @@
             <param name="log_resource_violations" value="true"/>
         </node>
     </group>
+
+    <!-- Ensure required parameters for perception nodes are loaded -->
+    <!-- Load defaults first (provide required keys), then enhanced overlays -->
+    <rosparam ns="/$(arg veh)/$(arg veh)/line_detector_node" command="load" file="$(find line_detector)/config/line_detector_node/default.yaml" />
+    <rosparam ns="/$(arg veh)/$(arg veh)/line_detector_node" command="load" file="$(find line_detector)/config/line_detector_node/enhanced_adaptive.yaml" />
+    <rosparam ns="/$(arg veh)/$(arg veh)/lane_filter_node" command="load" file="$(find lane_filter)/config/lane_filter_node/default.yaml" />
+    <rosparam ns="/$(arg veh)/$(arg veh)/lane_filter_node" command="load" file="$(find lane_filter)/config/lane_filter_node/enhanced_curve_fitting.yaml" />
     
     <!-- Integration Coordinator Node -->
     <node name="integration_coordinator" pkg="duckietown_demos" type="integration_coordinator_node.py" output="screen">

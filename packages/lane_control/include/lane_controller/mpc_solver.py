@@ -8,6 +8,7 @@ to achieve optimal lane following performance with trajectory optimization and c
 
 import numpy as np
 import time
+import logging
 from typing import Tuple, Optional, Dict, Any
 try:
     import rospy
@@ -129,8 +130,8 @@ class MPCSolver:
         self.current_horizon = parameters.prediction_horizon
         self.current_weights = self._initialize_weights()
         
-        # Logging setup
-        self.logger = rospy.get_logger() if rospy.core.is_initialized() else None
+    # Logging setup (use Python logging; rospy.get_logger() is not available)
+    self.logger = logging.getLogger("MPCSolver")
         
         rospy.loginfo("[MPCSolver] Initialized MPC solver with horizon: %d, dt: %.3f, scipy: %s", 
                      self.params.prediction_horizon, self.params.dt, SCIPY_AVAILABLE)

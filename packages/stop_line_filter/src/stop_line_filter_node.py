@@ -345,19 +345,21 @@ class StopLineFilterNode(DTROS):
         self.detection_count = 0
         self.precision_stops_executed = 0
         self.last_performance_log = time.time()
+        # Runtime switch (enabled by default)
+        self.switch = True
 
-    ## publishers and subscribers
-    self.sub_segs = rospy.Subscriber("~segment_list", SegmentList, self.cb_segments)
-    self.sub_lane = rospy.Subscriber("~lane_pose", LanePose, self.cb_lane_pose)
-    self.sub_mode = rospy.Subscriber("fsm_node/mode", FSMState, self.cb_state_change)
-        
-    # Subscribe to AprilTag detections for precision stop control (respect namespace)
-    apriltag_topic = rospy.get_param('~apriltag_detections_topic', 'apriltag_detector_node/detections')
-    self.sub_apriltag = rospy.Subscriber(apriltag_topic, rospy.AnyMsg, self.cb_apriltag_detections)
-        
-    self.pub_stop_line_reading = rospy.Publisher("~stop_line_reading", StopLineReading, queue_size=1)
-    self.pub_at_stop_line = rospy.Publisher("~at_stop_line", BoolStamped, queue_size=1)
-        
+        # Publishers and subscribers
+        self.sub_segs = rospy.Subscriber("~segment_list", SegmentList, self.cb_segments)
+        self.sub_lane = rospy.Subscriber("~lane_pose", LanePose, self.cb_lane_pose)
+        self.sub_mode = rospy.Subscriber("fsm_node/mode", FSMState, self.cb_state_change)
+
+        # Subscribe to AprilTag detections for precision stop control (respect namespace)
+        apriltag_topic = rospy.get_param('~apriltag_detections_topic', 'apriltag_detector_node/detections')
+        self.sub_apriltag = rospy.Subscriber(apriltag_topic, rospy.AnyMsg, self.cb_apriltag_detections)
+
+        self.pub_stop_line_reading = rospy.Publisher("~stop_line_reading", StopLineReading, queue_size=1)
+        self.pub_at_stop_line = rospy.Publisher("~at_stop_line", BoolStamped, queue_size=1)
+
         # Initialize precision stop controller
         if self.enable_precision_stop.value:
             self.precision_stop_controller = PrecisionStopController(self)
@@ -365,7 +367,7 @@ class StopLineFilterNode(DTROS):
         else:
             self.precision_stop_controller = None
             rospy.loginfo("[StopLineFilterNode] Precision stop controller disabled")
-        
+
         rospy.loginfo(f"[StopLineFilterNode] Initialized with precision stop: {self.enable_precision_stop.value}")
         rospy.loginfo(f"[StopLineFilterNode] Stop distance: {self.stop_distance.value}m")
         rospy.loginfo(f"[StopLineFilterNode] Precision stop distance: {self.precision_stop_distance.value}m")
