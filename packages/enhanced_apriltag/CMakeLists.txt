@@ -27,7 +27,6 @@ catkin_package(
   CATKIN_DEPENDS rospy std_msgs sensor_msgs geometry_msgs cv_bridge duckietown_enhanced_msgs # message_runtime
 )
 
-catkin_python_setup()
 
 catkin_install_python(
   PROGRAMS
