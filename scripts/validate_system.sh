@@ -28,6 +28,27 @@ log_check() {
 ERRORS=0
 WARNINGS=0
 
+# Source ROS and workspaces to ensure rospack can discover packages
+source_envs() {
+    # Source ROS distro
+    if [ -f /opt/ros/noetic/setup.bash ]; then
+        # shellcheck disable=SC1091
+        source /opt/ros/noetic/setup.bash
+    elif [ -f /opt/ros/melodic/setup.bash ]; then
+        # shellcheck disable=SC1091
+        source /opt/ros/melodic/setup.bash
+    fi
+    # Source base then overlay
+    if [ -f "/code/catkin_ws/devel/setup.bash" ]; then
+        # shellcheck disable=SC1091
+        source "/code/catkin_ws/devel/setup.bash"
+    fi
+    if [ -f "/code/enhanced_ws/devel/setup.bash" ]; then
+        # shellcheck disable=SC1091
+        source "/code/enhanced_ws/devel/setup.bash"
+    fi
+}
+
 # Validation functions
 check_ros_environment() {
     log_check "Checking ROS environment..."
@@ -236,6 +257,9 @@ main() {
     log_info "Starting validation checks..."
     echo
     
+    # Ensure environment is sourced for reliable rospack detection
+    source_envs
+
     check_ros_environment
     check_workspace
     check_vehicle_name
