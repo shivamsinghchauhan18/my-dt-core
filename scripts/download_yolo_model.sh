@@ -1,3 +1,56 @@
+#!/usr/bin/env bash
+# Download YOLOv5s model to the expected vehicle_detection path
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+MODEL_REL="packages/vehicle_detection/yolov5s.pt"
+TARGET_PATH="$REPO_ROOT/$MODEL_REL"
+URL_DEFAULT="https://github.com/ultralytics/yolov5/releases/download/v7.0/yolov5s.pt"
+
+echo "[download_yolo_model] Target: $TARGET_PATH"
+mkdir -p "$(dirname "$TARGET_PATH")"
+
+# If already present and reasonably large, skip
+if [ -f "$TARGET_PATH" ]; then
+  SIZE=$(wc -c < "$TARGET_PATH" | tr -d '[:space:]')
+  if [ "${SIZE:-0}" -gt 10000000 ]; then
+    echo "[download_yolo_model] Model already present (~$((SIZE/1024/1024)) MB), skipping."
+    exit 0
+  else
+    echo "[download_yolo_model] Existing file too small ($SIZE bytes), re-downloading..."
+    rm -f "$TARGET_PATH"
+  fi
+fi
+
+TMP_FILE="${TARGET_PATH}.tmp"
+rm -f "$TMP_FILE"
+
+echo "[download_yolo_model] Downloading yolov5s.pt..."
+if command -v curl >/dev/null 2>&1; then
+  curl -L -o "$TMP_FILE" "$URL_DEFAULT"
+elif command -v wget >/dev/null 2>&1; then
+  wget -O "$TMP_FILE" "$URL_DEFAULT"
+else
+  echo "[download_yolo_model] Neither curl nor wget found. Install one and retry." >&2
+  exit 1
+fi
+
+if [ ! -f "$TMP_FILE" ]; then
+  echo "[download_yolo_model] Download failed (no file)." >&2
+  exit 1
+fi
+
+SIZE=$(wc -c < "$TMP_FILE" | tr -d '[:space:]')
+if [ "${SIZE:-0}" -lt 10000000 ]; then
+  echo "[download_yolo_model] Downloaded file too small ($SIZE bytes)." >&2
+  rm -f "$TMP_FILE"
+  exit 1
+fi
+
+mv "$TMP_FILE" "$TARGET_PATH"
+echo "[download_yolo_model] Saved model to $TARGET_PATH (~$((SIZE/1024/1024)) MB)."
+exit 0
 #!/bin/bash
 # Script to download YOLOv5 model for enhanced vehicle detection
 # This should be run inside the container after workspace setup

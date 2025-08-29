@@ -34,7 +34,7 @@
             <arg name="visualization" value="$(arg enable_visualization)"/>
             
             <!-- Basic infrastructure -->
-            <arg name="fsm" value="true"/>
+            <arg name="fsm" value="false"/>
             <arg name="/fsm/logic_gate" value="false"/>
             <arg name="anti_instagram" value="true"/>
             <arg name="LED" value="true"/>

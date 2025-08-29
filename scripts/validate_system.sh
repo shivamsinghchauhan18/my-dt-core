@@ -164,7 +164,7 @@ check_yolo_model() {
     done
     
     if [ "$FOUND_MODEL" = false ]; then
-        log_error "YOLO model not found. Run: scripts/download_yolo_model.sh"
+        log_error "YOLO model not found. Run: /code/enhanced_ws/src/my-dt-core/scripts/download_yolo_model.sh"
         ERRORS=$((ERRORS + 1))
     fi
 }
