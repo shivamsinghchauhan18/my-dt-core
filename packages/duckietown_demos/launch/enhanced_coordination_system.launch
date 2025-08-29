@@ -11,44 +11,47 @@
     <arg name="enable_performance_optimization" default="true"/>
     <arg name="enable_enhanced_coordination" default="true"/>
     <arg name="enable_advanced_state_management" default="true"/>
+    <arg name="start_fsm" default="true"/>
     
-    <!-- Vehicle-specific parameter loading -->
-    <rosparam command="load" file="$(find duckietown)/config/$(arg config)/$(arg param_file_name).yaml"/>
+    <!-- Vehicle-specific parameter loading removed (not required and may not exist in base workspace) -->
     
-    <!-- Enhanced FSM Node with Advanced State Management -->
-    <group if="$(arg enable_advanced_state_management)">
-        <node name="fsm_node" pkg="fsm" type="fsm_node.py" output="screen" clear_params="true">
-            <rosparam command="load" file="$(find fsm)/config/fsm_node/lane_following.yaml"/>
-            <rosparam command="load" file="$(find fsm)/config/fsm_node/enhanced_state_management.yaml"/>
-            <rosparam command="load" file="$(find fsm)/config/fsm_node/safety_monitoring.yaml"/>
-            
-            <!-- Enhanced state management parameters -->
-            <param name="enable_state_persistence" value="true"/>
-            <param name="enable_enhanced_validation" value="true"/>
-            <param name="enable_recovery_mechanisms" value="true"/>
-            <param name="state_persistence_path" value="/tmp/fsm_state_$(arg veh).pkl"/>
-            <param name="max_recovery_attempts" value="3"/>
-            <param name="enable_safety_monitoring" value="true"/>
-            <param name="safety_check_frequency" value="1.0"/>
-            
-            <!-- AprilTag stop enhancement -->
-            <param name="enable_apriltag_stops" value="true"/>
-            <param name="apriltag_stop_distance_threshold" value="1.0"/>
-            <param name="apriltag_stop_duration" value="2.0"/>
-            
-            <!-- Performance monitoring -->
-            <param name="enable_performance_logging" value="true"/>
-            <param name="log_state_transitions" value="true"/>
-            <param name="log_validation_events" value="true"/>
-            <param name="log_recovery_events" value="true"/>
-        </node>
-    </group>
-    
-    <!-- Standard FSM Node (fallback) -->
-    <group unless="$(arg enable_advanced_state_management)">
-        <node name="fsm_node" pkg="fsm" type="fsm_node.py" output="screen" clear_params="true">
-            <rosparam command="load" file="$(find fsm)/config/fsm_node/lane_following.yaml"/>
-        </node>
+    <!-- FSM section (disable-able) -->
+    <group if="$(arg start_fsm)">
+        <!-- Enhanced FSM Node with Advanced State Management -->
+        <group if="$(arg enable_advanced_state_management)">
+            <node name="fsm_node" pkg="fsm" type="fsm_node.py" output="screen" clear_params="true">
+                <rosparam command="load" file="$(find fsm)/config/fsm_node/lane_following.yaml"/>
+                <rosparam command="load" file="$(find fsm)/config/fsm_node/enhanced_state_management.yaml"/>
+                <rosparam command="load" file="$(find fsm)/config/fsm_node/safety_monitoring.yaml"/>
+                
+                <!-- Enhanced state management parameters -->
+                <param name="enable_state_persistence" value="true"/>
+                <param name="enable_enhanced_validation" value="true"/>
+                <param name="enable_recovery_mechanisms" value="true"/>
+                <param name="state_persistence_path" value="/tmp/fsm_state_$(arg veh).pkl"/>
+                <param name="max_recovery_attempts" value="3"/>
+                <param name="enable_safety_monitoring" value="true"/>
+                <param name="safety_check_frequency" value="1.0"/>
+                
+                <!-- AprilTag stop enhancement -->
+                <param name="enable_apriltag_stops" value="true"/>
+                <param name="apriltag_stop_distance_threshold" value="1.0"/>
+                <param name="apriltag_stop_duration" value="2.0"/>
+                
+                <!-- Performance monitoring -->
+                <param name="enable_performance_logging" value="true"/>
+                <param name="log_state_transitions" value="true"/>
+                <param name="log_validation_events" value="true"/>
+                <param name="log_recovery_events" value="true"/>
+            </node>
+        </group>
+        
+        <!-- Standard FSM Node (fallback) -->
+        <group unless="$(arg enable_advanced_state_management)">
+            <node name="fsm_node" pkg="fsm" type="fsm_node.py" output="screen" clear_params="true">
+                <rosparam command="load" file="$(find fsm)/config/fsm_node/lane_following.yaml"/>
+            </node>
+        </group>
     </group>
     
     <!-- Enhanced Explicit Coordinator with Behavior Arbitration -->

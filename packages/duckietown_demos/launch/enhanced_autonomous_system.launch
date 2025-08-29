@@ -49,21 +49,18 @@
             <!-- Enhanced Line Detection -->
             <include file="$(find line_detector)/launch/line_detector_node.launch">
                 <arg name="veh" value="$(arg veh)"/>
-                <arg name="config" value="$(arg config)"/>
                 <arg name="param_file_name" value="enhanced_adaptive"/>
             </include>
             
             <!-- Enhanced Lane Filter with Curve Fitting -->
             <include file="$(find lane_filter)/launch/lane_filter_node.launch">
                 <arg name="veh" value="$(arg veh)"/>
-                <arg name="config" value="$(arg config)"/>
                 <arg name="param_file_name" value="enhanced_curve_fitting"/>
             </include>
             
             <!-- Ground Projection -->
             <include file="$(find ground_projection)/launch/ground_projection_node.launch">
                 <arg name="veh" value="$(arg veh)"/>
-                <arg name="config" value="$(arg config)"/>
             </include>
         </group>
         
@@ -96,7 +93,6 @@
             <!-- Predictive Lane Controller with MPC -->
             <include file="$(find lane_control)/launch/lane_controller_node.launch">
                 <arg name="veh" value="$(arg veh)"/>
-                <arg name="config" value="enhanced_mpc"/>
                 <arg name="param_file_name" value="mpc"/>
             </include>
         </group>
@@ -105,7 +101,6 @@
             <!-- Precision Stop Controller -->
             <include file="$(find stop_line_filter)/launch/stop_line_filter_node.launch">
                 <arg name="veh" value="$(arg veh)"/>
-                <arg name="config" value="precision_stop"/>
             </include>
         </group>
         
@@ -176,6 +171,7 @@
                 <arg name="enable_performance_optimization" value="$(arg enable_performance_optimization)"/>
                 <arg name="enable_enhanced_coordination" value="true"/>
                 <arg name="enable_advanced_state_management" value="true"/>
+                <arg name="start_fsm" value="false"/>
                 <arg name="verbose" value="$(arg verbose)"/>
             </include>
         </group>
