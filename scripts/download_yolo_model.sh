@@ -22,7 +22,7 @@ log_success() {
 
 # Determine the correct package directory
 PACKAGE_DIRS=(
-    "/code/enhance_ws/src/my-dt-core/packages/vehicle_detection"
+    "/code/enhanced_ws/src/my-dt-core/packages/vehicle_detection"
     "/code/catkin_ws/src/dt-duckiebot-interface/my-dt-core/packages/vehicle_detection"
     "$SCRIPT_DIR/../packages/vehicle_detection"
 )

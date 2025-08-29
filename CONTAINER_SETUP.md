@@ -18,8 +18,8 @@ docker exec -it dt-duckiebot-interface bash
 
 ### 2. Navigate to Workspace
 ```bash
-# Go to the enhance_ws workspace
-cd /code/enhance_ws
+# Go to the enhanced_ws workspace
+cd /code/enhanced_ws
 ```
 
 ### 3. Source ROS Environment
@@ -43,7 +43,7 @@ source devel/setup.bash
 ### 5. Download YOLO Model
 ```bash
 # Run the model download script
-cd /code/enhance_ws/src/my-dt-core
+cd /code/enhanced_ws/src/my-dt-core
 ./scripts/download_yolo_model.sh
 ```
 
@@ -53,7 +53,7 @@ cd /code/enhance_ws/src/my-dt-core
 export VEHICLE_NAME="blueduckie"  # or your robot name
 export ROS_MASTER_URI="http://localhost:11311"
 export ROS_IP="127.0.0.1"
-export PYTHONPATH="/code/enhance_ws/src/my-dt-core/packages:$PYTHONPATH"
+export PYTHONPATH="/code/enhanced_ws/src/my-dt-core/packages:$PYTHONPATH"
 ```
 
 ### 7. Validate System
@@ -75,27 +75,27 @@ export PYTHONPATH="/code/enhance_ws/src/my-dt-core/packages:$PYTHONPATH"
 #### 1. YOLO Model Not Found
 ```bash
 # If model download fails, try manual download
-cd /code/enhance_ws/src/my-dt-core/packages/vehicle_detection
+cd /code/enhanced_ws/src/my-dt-core/packages/vehicle_detection
 wget https://github.com/ultralytics/yolov5/releases/download/v7.0/yolov5s.pt
 ```
 
 #### 2. Permission Denied
 ```bash
 # Fix permissions for executable files
-chmod +x /code/enhance_ws/src/my-dt-core/launchers/enhanced_autonomous_system.sh
-chmod +x /code/enhance_ws/src/my-dt-core/packages/vehicle_detection/src/enhanced_vehicle_detection_node.py
-chmod +x /code/enhance_ws/src/my-dt-core/packages/duckietown_demos/scripts/enhanced_system_startup.py
+chmod +x /code/enhanced_ws/src/my-dt-core/launchers/enhanced_autonomous_system.sh
+chmod +x /code/enhanced_ws/src/my-dt-core/packages/vehicle_detection/src/enhanced_vehicle_detection_node.py
+chmod +x /code/enhanced_ws/src/my-dt-core/packages/duckietown_demos/scripts/enhanced_system_startup.py
 ```
 
 #### 3. Python Import Errors
 ```bash
 # Ensure Python path is set correctly
-export PYTHONPATH="/code/enhance_ws/src/my-dt-core/packages:$PYTHONPATH"
+export PYTHONPATH="/code/enhanced_ws/src/my-dt-core/packages:$PYTHONPATH"
 
 # Test imports
 python3 -c "
 import sys
-sys.path.insert(0, '/code/enhance_ws/src/my-dt-core/packages')
+sys.path.insert(0, '/code/enhanced_ws/src/my-dt-core/packages')
 try:
     from vehicle_detection.src.optimized_yolo_detector import OptimizedYOLODetector
     print('✅ YOLO detector import OK')
@@ -107,7 +107,7 @@ except Exception as e:
 #### 4. Workspace Build Errors
 ```bash
 # Clean and rebuild workspace
-cd /code/enhance_ws
+cd /code/enhanced_ws
 catkin clean -y
 catkin_make
 source devel/setup.bash
