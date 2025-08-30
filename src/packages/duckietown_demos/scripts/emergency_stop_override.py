@@ -65,34 +65,34 @@ class EmergencyStopOverride:
         self.emergency_active = False
         self.emergency_reason = ""
         
-    # Publishers
-    self.emergency_cmd_pub = rospy.Publisher('~emergency_car_cmd', Twist2DStamped, queue_size=1)
-    self.emergency_status_pub = rospy.Publisher('~emergency_status', String, queue_size=1)
-    self.emergency_active_pub = rospy.Publisher('~emergency_active', BoolStamped, queue_size=1)
+        # Publishers
+        self.emergency_cmd_pub = rospy.Publisher('~emergency_car_cmd', Twist2DStamped, queue_size=1)
+        self.emergency_status_pub = rospy.Publisher('~emergency_status', String, queue_size=1)
+        self.emergency_active_pub = rospy.Publisher('~emergency_active', BoolStamped, queue_size=1)
 
-    # Command override publishers
-    # Primary: match master launch remap (~emergency_cmd -> wheels_driver_node/emergency_stop)
-    self.override_cmd_pub = rospy.Publisher('~emergency_cmd', Twist2DStamped, queue_size=1)
-    # Secondary: direct to car_cmd_switch (kept for backward compatibility)
-    self.override_cmd_direct_pub = rospy.Publisher('car_cmd_switch_node/emergency_cmd', Twist2DStamped, queue_size=1)
+        # Command override publishers
+        # Primary: match master launch remap (~emergency_cmd -> wheels_driver_node/emergency_stop)
+        self.override_cmd_pub = rospy.Publisher('~emergency_cmd', Twist2DStamped, queue_size=1)
+        # Secondary: direct to car_cmd_switch (kept for backward compatibility)
+        self.override_cmd_direct_pub = rospy.Publisher('car_cmd_switch_node/emergency_cmd', Twist2DStamped, queue_size=1)
 
-    # Subscribers for emergency triggers
-    rospy.Subscriber('~manual_emergency', Bool, self.manual_emergency_callback)
-    rospy.Subscriber('~safety_emergency', SafetyStatus, self.safety_emergency_callback)
-    rospy.Subscriber('~system_emergency', String, self.system_emergency_callback)
-    rospy.Subscriber('~remote_emergency', Bool, self.remote_emergency_callback)
-    # Additional channels used by master launch remaps
-    rospy.Subscriber('~navigation_emergency', String, self.system_emergency_callback)
-    rospy.Subscriber('~coordination_emergency', String, self.system_emergency_callback)
-    rospy.Subscriber('~integration_emergency', String, self.system_emergency_callback)
+        # Subscribers for emergency triggers
+        rospy.Subscriber('~manual_emergency', Bool, self.manual_emergency_callback)
+        rospy.Subscriber('~safety_emergency', SafetyStatus, self.safety_emergency_callback)
+        rospy.Subscriber('~system_emergency', String, self.system_emergency_callback)
+        rospy.Subscriber('~remote_emergency', Bool, self.remote_emergency_callback)
+        # Additional channels used by master launch remaps
+        rospy.Subscriber('~navigation_emergency', String, self.system_emergency_callback)
+        rospy.Subscriber('~coordination_emergency', String, self.system_emergency_callback)
+        rospy.Subscriber('~integration_emergency', String, self.system_emergency_callback)
 
-    # Joystick emergency trigger (if available)
-    rospy.Subscriber('/*/joy', Joy, self.joy_callback)
+        # Joystick emergency trigger (if available) - use relative name to resolve under veh namespace
+        rospy.Subscriber('joy', Joy, self.joy_callback)
 
-    # Monitor normal car commands to detect anomalies (within current namespace)
-    rospy.Subscriber('car_cmd_switch_node/cmd', Twist, self.car_cmd_callback)
+        # Monitor normal car commands to detect anomalies (within current namespace)
+        rospy.Subscriber('car_cmd_switch_node/cmd', Twist, self.car_cmd_callback)
 
-    # Emergency monitoring timer
+        # Emergency monitoring timer
         self.emergency_timer = rospy.Timer(
             rospy.Duration(0.1),  # 10Hz emergency monitoring
             self.emergency_monitor_callback

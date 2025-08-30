@@ -8,6 +8,7 @@ from collections import deque
 from cv_bridge import CvBridge
 from sensor_msgs.msg import CompressedImage, Image
 from duckietown_msgs.msg import Segment, SegmentList, AntiInstagramThresholds
+from duckietown_msgs.srv import SetBool, SetBoolResponse
 from line_detector import LineDetector, ColorRange, plotSegments, plotMaps
 from image_processing.anti_instagram import AntiInstagram
 
@@ -417,6 +418,9 @@ class LineDetectorNode(DTROS):
         self.total_processing_time = 0.0
         self.last_performance_log = time.time()
 
+    # Active flag controlled by FSM via ~switch service
+        self._active = True
+
         # Publishers
         self.pub_lines = rospy.Publisher(
             "~segment_list", SegmentList, queue_size=1, dt_topic_type=TopicType.PERCEPTION
@@ -450,10 +454,20 @@ class LineDetectorNode(DTROS):
             "~thresholds", AntiInstagramThresholds, self.thresholds_cb, queue_size=1
         )
 
+    # Service to enable/disable node
+    self._srv_switch = rospy.Service("~switch", SetBool, self._cb_switch)
+
     def thresholds_cb(self, thresh_msg):
         self.anti_instagram_thresholds["lower"] = thresh_msg.low
         self.anti_instagram_thresholds["higher"] = thresh_msg.high
         self.ai_thresholds_received = True
+
+    # --- Services ---
+    def _cb_switch(self, req: SetBool):
+        self._active = bool(req.data)
+        status = "enabled" if self._active else "disabled"
+        self.loginfo(f"Switch: {status}")
+        return SetBoolResponse(success=True, message=f"LineDetectorNode {status}")
 
     def image_cb(self, image_msg):
         """
@@ -476,6 +490,8 @@ class LineDetectorNode(DTROS):
             image_msg (:obj:`sensor_msgs.msg.CompressedImage`): The receive image message
 
         """
+        if not self._active:
+            return
         frame_start_time = time.time()
         self.frame_count += 1
 

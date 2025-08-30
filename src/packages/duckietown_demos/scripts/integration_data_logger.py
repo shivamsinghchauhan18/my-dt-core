@@ -219,28 +219,41 @@ class IntegrationDataLogger:
     def message_to_dict(self, msg):
         """Convert ROS message to dictionary for logging."""
         try:
-            if hasattr(msg, '_get_types'):
-                # Real ROS message
+            # Standard ROS Python messages expose __slots__ and _slot_types
+            if hasattr(msg, '__slots__') and hasattr(msg, '_slot_types'):
                 result = {}
-                for field_name, field_type in zip(msg._get_names(), msg._get_types()):
+                for field_name, field_type in zip(msg.__slots__, msg._slot_types):
                     field_value = getattr(msg, field_name)
-                    if hasattr(field_value, '_get_types'):
-                        result[field_name] = self.message_to_dict(field_value)
+
+                    # Handle arrays/sequences
+                    if isinstance(field_value, (list, tuple)):
+                        converted = []
+                        for item in field_value:
+                            if hasattr(item, '__slots__') and hasattr(item, '_slot_types'):
+                                converted.append(self.message_to_dict(item))
+                            else:
+                                converted.append(item)
+                        result[field_name] = converted
                     else:
-                        result[field_name] = field_value
+                        # Nested ROS message
+                        if hasattr(field_value, '__slots__') and hasattr(field_value, '_slot_types'):
+                            result[field_name] = self.message_to_dict(field_value)
+                        else:
+                            # Basic types
+                            result[field_name] = field_value
                 return result
             else:
-                # Fallback for basic message types
+                # Fallback for basic message types or mocks
                 if hasattr(msg, 'data'):
                     return {'data': msg.data}
                 elif hasattr(msg, 'linear') and hasattr(msg, 'angular'):
                     return {
-                        'linear': {'x': msg.linear.x, 'y': msg.linear.y, 'z': msg.linear.z},
-                        'angular': {'x': msg.angular.x, 'y': msg.angular.y, 'z': msg.angular.z}
+                        'linear': {'x': getattr(msg.linear, 'x', None), 'y': getattr(msg.linear, 'y', None), 'z': getattr(msg.linear, 'z', None)},
+                        'angular': {'x': getattr(msg.angular, 'x', None), 'y': getattr(msg.angular, 'y', None), 'z': getattr(msg.angular, 'z', None)}
                     }
                 else:
                     return str(msg)
-                    
+
         except Exception as e:
             rospy.logwarn(f"Failed to convert message to dict: {e}")
             return str(msg)

@@ -66,7 +66,7 @@ class SystemPerformanceMonitor:
         self.latency_pub = rospy.Publisher('~current_latency', Float32, queue_size=1)
         
         # Subscribers for performance monitoring
-        rospy.Subscriber('/*/camera_node/image/compressed', CompressedImage, self.image_callback)
+        rospy.Subscriber('camera_node/image/compressed', CompressedImage, self.image_callback)
         
         # Monitoring thread
         self.monitoring_thread = threading.Thread(target=self.monitoring_loop)

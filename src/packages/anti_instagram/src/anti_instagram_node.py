@@ -6,6 +6,7 @@ from image_processing.anti_instagram import AntiInstagram
 from cv_bridge import CvBridge
 from sensor_msgs.msg import CompressedImage
 from duckietown_msgs.msg import AntiInstagramThresholds
+from duckietown_msgs.srv import SetBool, SetBoolResponse
 
 from duckietown.dtros import DTROS, NodeType, TopicType
 
@@ -47,14 +48,20 @@ class AntiInstagramNode(DTROS):
             queue_size=1,
         )
 
-        # Initialize Timer
-        rospy.Timer(rospy.Duration(self._interval), self.calculate_new_parameters)
+    # Active flag (controlled by ~switch service)
+    self._active = True
+
+    # Initialize Timer
+    rospy.Timer(rospy.Duration(self._interval), self.calculate_new_parameters)
 
         # Initialize objects and data
         self.ai = AntiInstagram()
         self.bridge = CvBridge()
         self.image_msg = None
         self.mutex = Lock()
+
+    # Service to switch node on/off (used by FSM)
+    self._srv_switch = rospy.Service("~switch", SetBool, self._cb_switch)
 
         # ---
         self.log("Initialized.")
@@ -72,6 +79,8 @@ class AntiInstagramNode(DTROS):
         return image
 
     def calculate_new_parameters(self, event):
+        if not self._active:
+            return
         if self.image_msg is None:
             self.log("Waiting for first image!")
             return
@@ -85,6 +94,21 @@ class AntiInstagramNode(DTROS):
         msg.low = lower_thresholds
         msg.high = higher_thresholds
         self.pub.publish(msg)
+
+    # --- Services ---
+    def _cb_switch(self, req: SetBool):
+        """Enable/disable this node.
+
+        Args:
+            req (duckietown_msgs/SetBool): req.data True to enable, False to disable
+
+        Returns:
+            duckietown_msgs/SetBoolResponse
+        """
+        self._active = bool(req.data)
+        status = "enabled" if self._active else "disabled"
+        self.log(f"Switch: {status}")
+        return SetBoolResponse(success=True, message=f"AntiInstagramNode {status}")
 
 
 if __name__ == "__main__":
