@@ -1,8 +1,18 @@
 #!/usr/bin/env python3
 
 import rospy
-from cv_bridge import CvBridge
 from sensor_msgs.msg import Image, CompressedImage
+
+# Try cv_bridge; fall back to pure OpenCV if unavailable or broken
+HAVE_CV_BRIDGE = True
+try:
+    from cv_bridge import CvBridge
+except Exception as e:
+    HAVE_CV_BRIDGE = False
+    rospy.logwarn("cv_bridge import failed: %s; will fall back to pure OpenCV path if enabled", e)
+
+import cv2
+import numpy as np
 
 from duckietown.dtros import DTROS, DTParam, NodeType, TopicType
 from dt_class_utils import DTReminder
@@ -14,9 +24,12 @@ class DecoderNode(DTROS):
 
         # parameters
         self.publish_freq = DTParam("~publish_freq", -1)
+    # Force pure-OpenCV path (bypass cv_bridge). If false, use cv_bridge when available
+    self.force_opencv = rospy.get_param("~force_opencv", False)
 
         # utility objects
-        self.bridge = CvBridge()
+    self.use_cv_bridge = (not self.force_opencv) and HAVE_CV_BRIDGE
+    self.bridge = CvBridge() if self.use_cv_bridge else None
         self.reminder = DTReminder(frequency=self.publish_freq.value)
 
         # subscribers
@@ -45,11 +58,32 @@ class DecoderNode(DTROS):
         if not self.reminder.is_time(frequency=self.publish_freq.value):
             return
         # turn 'compressed image message' into 'raw image'
-        with self.profiler("/cb/image/decode"):
-            img = self.bridge.compressed_imgmsg_to_cv2(msg)
-        # turn 'raw image' into 'raw image message'
-        with self.profiler("/cb/image/serialize"):
-            out_msg = self.bridge.cv2_to_imgmsg(img, "bgr8")
+        if self.use_cv_bridge:
+            with self.profiler("/cb/image/decode"):
+                img = self.bridge.compressed_imgmsg_to_cv2(msg)
+            # turn 'raw image' into 'raw image message'
+            with self.profiler("/cb/image/serialize"):
+                out_msg = self.bridge.cv2_to_imgmsg(img, "bgr8")
+        else:
+            # Pure OpenCV fallback: decode JPEG/PNG and build Image message manually
+            with self.profiler("/cb/image/decode_opencv"):
+                np_arr = np.frombuffer(msg.data, dtype=np.uint8)
+                img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+                if img is None:
+                    rospy.logwarn_throttle(5.0, "decoder_node: cv2.imdecode returned None")
+                    return
+            with self.profiler("/cb/image/serialize_opencv"):
+                # Ensure BGR8 format
+                if img.ndim == 2:
+                    img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+                h, w = img.shape[:2]
+                out_msg = Image()
+                out_msg.height = h
+                out_msg.width = w
+                out_msg.encoding = "bgr8"
+                out_msg.is_bigendian = 0
+                out_msg.step = w * 3
+                out_msg.data = img.tobytes()
         # maintain original header
         out_msg.header = msg.header
         # publish image
