@@ -233,10 +233,10 @@ jobs:
     - name: Test enhanced build script
       run: |
         echo "$(date '+%Y-%m-%d %H:%M:%S') [CI] Testing enhanced build script..."
-        chmod +x scripts/enhanced_build.sh
+        chmod +x src/scripts/enhanced_build.sh
         
         # Test script help
-        ./scripts/enhanced_build.sh --help
+        ./src/scripts/enhanced_build.sh --help
         
         # Test build validation (dry run)
         echo "$(date '+%Y-%m-%d %H:%M:%S') [CI] Testing build validation..."
@@ -283,10 +283,10 @@ jobs:
     - name: Run enhanced performance benchmarking tests
       run: |
         echo "$(date '+%Y-%m-%d %H:%M:%S') [CI] Running enhanced performance benchmarking tests..."
-        cd packages/easy_regression
+        cd src/packages/easy_regression
         
         # Run tests with coverage
-        python -m coverage run --source=src -m pytest tests/test_enhanced_performance_benchmarking.py -v
+        python -m coverage run --source=src -m pytest src/tests/test_enhanced_performance_benchmarking.py -v
         
         # Generate coverage report
         python -m coverage report -m
@@ -299,24 +299,24 @@ jobs:
         echo "$(date '+%Y-%m-%d %H:%M:%S') [CI] Running comprehensive component tests..."
         
         # Test build system
-        python -m coverage run --source=. tests/test_build_system.py
+        python -m coverage run --source=. src/tests/test_build_system.py
         python -m coverage xml -o coverage_build_system.xml
         
         # Test message structures
-        cd packages/duckietown_msgs
+        cd src/packages/duckietown_msgs
         python test_basic.py
         python test_messages.py
         cd ../..
         
         # Test enhanced components (if available)
-        for package in packages/*/tests/; do
+        for package in src/packages/*/src/tests/; do
           if [ -d "$package" ]; then
             echo "$(date '+%Y-%m-%d %H:%M:%S') [CI] Testing package: $(dirname $package)"
             cd "$(dirname $package)"
             
             # Run Python tests if they exist
-            if ls tests/test_*.py 1> /dev/null 2>&1; then
-              for test_file in tests/test_*.py; do
+            if ls src/tests/test_*.py 1> /dev/null 2>&1; then
+              for test_file in src/tests/test_*.py; do
                 echo "$(date '+%Y-%m-%d %H:%M:%S') [CI] Running $test_file"
                 python "$test_file" || echo "Test $test_file completed with warnings"
               done
@@ -346,7 +346,7 @@ jobs:
       uses: codecov/codecov-action@v3
       if: always()
       with:
-        files: ./coverage_comprehensive.xml,./packages/easy_regression/coverage_benchmarking.xml,./coverage_build_system.xml
+        files: ./coverage_comprehensive.xml,./src/packages/easy_regression/coverage_benchmarking.xml,./coverage_build_system.xml
         flags: unittests
         name: codecov-umbrella
         fail_ci_if_error: false
@@ -359,7 +359,7 @@ jobs:
         path: |
           coverage_*.xml
           coverage_html_report/
-          packages/easy_regression/coverage_*.xml
+          src/packages/easy_regression/coverage_*.xml
         retention-days: 30
         
     - name: Performance benchmark analysis
@@ -367,8 +367,8 @@ jobs:
         echo "$(date '+%Y-%m-%d %H:%M:%S') [CI] Running performance benchmark analysis..."
         
         # Run performance benchmarks if available
-        if [ -f "packages/easy_regression/src/enhanced_performance_benchmarking.py" ]; then
-          cd packages/easy_regression/src
+        if [ -f "src/packages/easy_regression/src/enhanced_performance_benchmarking.py" ]; then
+          cd src/packages/easy_regression/src
           python enhanced_performance_benchmarking.py
           
           # Archive benchmark results
@@ -386,8 +386,8 @@ jobs:
       with:
         name: benchmark-results
         path: |
-          packages/easy_regression/src/benchmark_results/
-          packages/easy_regression/src/test_data/
+          src/packages/easy_regression/src/benchmark_results/
+          src/packages/easy_regression/src/test_data/
         retention-days: 7
 
   security-scan:
