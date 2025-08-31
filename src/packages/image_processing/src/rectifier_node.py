@@ -37,23 +37,9 @@ class RectifierNode(DTROS):
             "~camera_info_in", CameraInfo, self.cb_camera_info, queue_size=1
         )
 
-        # publishers
-        self.pub_img = rospy.Publisher(
-            "~image/compressed",
-            CompressedImage,
-            queue_size=1,
-            dt_topic_type=TopicType.PERCEPTION,
-            dt_healthy_freq=self._get_param_value(self.publish_freq, -1),
-            dt_help="Rectified image (i.e., image with no distortion effects from the lens).",
-        )
-        self.pub_camera_info = rospy.Publisher(
-            "~camera_info",
-            CameraInfo,
-            queue_size=1,
-            dt_topic_type=TopicType.PERCEPTION,
-            dt_healthy_freq=self._get_param_value(self.publish_freq, -1),
-            dt_help="Camera parameters for the (virtual) rectified camera.",
-        )
+    # publishers
+    self.pub_img = self._advertise_pub_img()
+    self.pub_camera_info = self._advertise_pub_camera_info()
 
     def cb_camera_info(self, msg):
         # unsubscribe from camera_info
@@ -140,6 +126,34 @@ class RectifierNode(DTROS):
         except Exception:
             pass
         return default
+
+    def _advertise_pub_img(self):
+        healthy = self._get_param_value(self.publish_freq, -1)
+        try:
+            return rospy.Publisher(
+                "~image/compressed",
+                CompressedImage,
+                queue_size=1,
+                dt_topic_type=TopicType.PERCEPTION,
+                dt_healthy_freq=healthy,
+                dt_help="Rectified image (i.e., image with no distortion effects from the lens).",
+            )
+        except TypeError:
+            return rospy.Publisher("~image/compressed", CompressedImage, queue_size=1)
+
+    def _advertise_pub_camera_info(self):
+        healthy = self._get_param_value(self.publish_freq, -1)
+        try:
+            return rospy.Publisher(
+                "~camera_info",
+                CameraInfo,
+                queue_size=1,
+                dt_topic_type=TopicType.PERCEPTION,
+                dt_healthy_freq=healthy,
+                dt_help="Camera parameters for the (virtual) rectified camera.",
+            )
+        except TypeError:
+            return rospy.Publisher("~camera_info", CameraInfo, queue_size=1)
 
 
 if __name__ == "__main__":

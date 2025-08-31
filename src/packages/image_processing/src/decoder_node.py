@@ -37,15 +37,8 @@ class DecoderNode(DTROS):
             "~image_in", CompressedImage, self.cb_image, queue_size=1, buff_size=10 * 1024 * 1024
         )
 
-        # publishers
-        self.pub_img = rospy.Publisher(
-            "~image_out",
-            Image,
-            queue_size=1,
-            dt_topic_type=TopicType.PERCEPTION,
-            dt_healthy_freq=self._get_publish_freq(),
-            dt_help="Raw image",
-        )
+    # publishers
+    self.pub_img = self._advertise_image_out()
 
     def cb_image(self, msg):
         # make sure this matters to somebody
@@ -97,6 +90,22 @@ class DecoderNode(DTROS):
         self.pub_img.publish(out_msg)
 
     # --- Helpers ---------------------------------------------------------
+    def _advertise_image_out(self):
+        """Create publisher with dtros extras when available, otherwise fall back."""
+        healthy = self._get_publish_freq()
+        try:
+            return rospy.Publisher(
+                "~image_out",
+                Image,
+                queue_size=1,
+                dt_topic_type=TopicType.PERCEPTION,
+                dt_healthy_freq=healthy,
+                dt_help="Raw image",
+            )
+        except TypeError:
+            # Shim/vanilla rospy without dt_* kwargs
+            return rospy.Publisher("~image_out", Image, queue_size=1)
+
     def _value_of(self, p, default=None):
         """Safely extract the numeric value from a DTParam or return default.
 
