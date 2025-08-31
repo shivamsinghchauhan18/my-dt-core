@@ -2,7 +2,10 @@
 """
 Publish CameraInfo for a vehicle camera from a YAML calibration file.
 Usage:
-  rosrun temp_camera publish_camera_info.py _veh:=blueduckie _calib_file:=/data/config/calibrations/camera_intrinsic/blueduckie.yaml
+    # using an absolute path to a calibration file
+    rosrun temp_camera publish_camera_info.py _veh:=blueduckie _calib_file:=/data/config/calibrations/camera_intrinsic/blueduckie.yaml
+    # using the calibration shipped in this package
+    rosrun temp_camera publish_camera_info.py _veh:=blueduckie _calib_file:=$(rospack find temp_camera)/config/blueduckie.yaml
 """
 import rospy
 import yaml

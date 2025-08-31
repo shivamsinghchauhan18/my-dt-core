@@ -1,0 +1,20 @@
+camera_name: blueduckie
+image_width: 640
+image_height: 480
+camera_matrix:
+  rows: 3
+  cols: 3
+  data: [340.61430846598955, 0.0, 313.21353872614105, 0.0, 337.0553037198998, 278.9360090046135, 0.0, 0.0, 1.0]
+distortion_model: plumb_bob
+distortion_coefficients:
+  rows: 1
+  cols: 5
+  data: [-0.3000081634026973, 0.062496542754754206, -0.0036487063852888003, 0.0008199700430319149, 0.0]
+rectification_matrix:
+  rows: 3
+  cols: 3
+  data: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+projection_matrix:
+  rows: 3
+  cols: 4
+  data: [232.46600341796875, 0.0, 311.3652544254437, 0.0, 0.0, 263.506103515625, 296.9745759393263, 0.0, 0.0, 0.0, 1.0, 0.0]
