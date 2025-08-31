@@ -1,3 +1,3 @@
 # List of line segments
-Header header
-Segment[] segments
+std_msgs/Header header
+duckietown_msgs/Segment[] segments

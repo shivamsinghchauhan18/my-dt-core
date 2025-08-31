@@ -16,9 +16,11 @@ add_message_files(
   AprilTagDetectionArray.msg
     BoolStamped.msg
     FSMState.msg
+  LanePose.msg
     Segment.msg
     SegmentList.msg
     Twist2DStamped.msg
+  WheelsCmdStamped.msg
     StopLineReading.msg
     LEDPattern.msg
     AntiInstagramThresholds.msg
