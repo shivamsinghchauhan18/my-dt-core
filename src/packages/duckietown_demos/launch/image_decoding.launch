@@ -10,6 +10,7 @@
 		<arg name="veh" value="$(arg veh)"/>
         <arg name="verbose" value="$(arg verbose)" />
         <arg name="demo_name" value="$(arg demo_name)"/>
+	<arg name="force_opencv" value="$(arg force_opencv)"/>
 
 		<!-- Camera -->
 		<arg name="/camera/raw" value="true"/>
