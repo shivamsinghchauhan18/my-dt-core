@@ -14,10 +14,4 @@
 		<!-- Camera -->
 		<arg name="/camera/raw" value="true"/>
 	</include>
-
-	<!-- Also allow direct launching of the node for param control -->
-	<include file="$(find image_processing)/launch/image_decoding.launch">
-		<arg name="veh" value="$(arg veh)"/>
-		<arg name="force_opencv" value="$(arg force_opencv)"/>
-	</include>
 </launch>
