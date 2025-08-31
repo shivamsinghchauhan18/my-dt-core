@@ -29,18 +29,19 @@ class DecoderNode(DTROS):
         # utility objects
         self.use_cv_bridge = (not self.force_opencv) and HAVE_CV_BRIDGE
         self.bridge = CvBridge() if self.use_cv_bridge else None
-    # DTParam compatibility: in some distributions, .value is a callable
+        # DTParam compatibility: in some distributions, .value is a callable
         self.reminder = DTReminder(frequency=self._get_publish_freq())
 
         # subscribers
         self.sub_img = rospy.Subscriber(
             "~image_in", CompressedImage, self.cb_image, queue_size=1, buff_size=10 * 1024 * 1024
         )
-    # publishers
-    self.pub_img = self._advertise_image_out()
+
+        # publishers
+        self.pub_img = self._advertise_image_out()
 
     def cb_image(self, msg):
-    # make sure this matters to somebody (compatible with plain rospy)
+        # make sure this matters to somebody (compatible with plain rospy)
         if not self._anybody_listening(self.pub_img):
             return
         # make sure the node is not switched off
