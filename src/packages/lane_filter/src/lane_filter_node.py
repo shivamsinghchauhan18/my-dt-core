@@ -451,9 +451,9 @@ class LaneFilterNode(DTROS):
             "~seglist_filtered", SegmentList, queue_size=1, dt_topic_type=TopicType.DEBUG
         )
 
-        # FSM
-        # self.sub_switch = rospy.Subscriber(
-        #     "~switch", BoolStamped, self.cbSwitch, queue_size=1)
+    # FSM
+    # self.sub_switch = rospy.Subscriber(
+    #     "~switch", BoolStamped, self.cbSwitch, queue_size=1)
     self.sub_fsm_mode = rospy.Subscriber("~fsm_mode", FSMState, self.cbMode, queue_size=1)
 
     # Service to switch node on/off (used by FSM)
@@ -647,6 +647,21 @@ class LaneFilterNode(DTROS):
             self.last_performance_log = current_time_monitor
 
         self.debugOutput(segment_list_msg, d_max, phi_max, timestamp_before_processing, curve_fitting_results)
+
+    # --- Services ---
+    def _cb_switch(self, req: SetBool):
+        """Enable/disable this node.
+
+        Args:
+            req (duckietown_msgs/SetBool): req.data True to enable, False to disable
+
+        Returns:
+            duckietown_msgs/SetBoolResponse
+        """
+        self._active = bool(req.data)
+        status = "enabled" if self._active else "disabled"
+        rospy.loginfo(f"[LaneFilterNode] Switch: {status}")
+        return SetBoolResponse(success=True, message=f"LaneFilterNode {status}")
 
     # --- Services ---
     def _cb_switch(self, req: SetBool):
