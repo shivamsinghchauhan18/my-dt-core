@@ -42,7 +42,10 @@ if [ -n "$VIDEO_PATH" ]; then
 fi
 
 # Run health check (will wait up to timeout seconds)
-rosrun launchers health_check_node.py _veh:=$VEH _timeout:=12
+# start health check in background (run directly since it's not a ROS package)
+PYTHON=$(which python3 || which python)
+HEALTH_CHECK_SCRIPT="$(dirname "$0")/../src/launchers/health_check_node.py"
+"$PYTHON" "$HEALTH_CHECK_SCRIPT" &
 
 # Cleanup if this script started roscore or roslaunch (optional)
 # kill $LAUNCH_PID || true
