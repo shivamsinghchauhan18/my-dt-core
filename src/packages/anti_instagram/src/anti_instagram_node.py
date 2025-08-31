@@ -29,10 +29,18 @@ class AntiInstagramNode(DTROS):
         super(AntiInstagramNode, self).__init__(node_name=node_name, node_type=NodeType.PERCEPTION)
 
         # Read parameters
-
         self._interval = rospy.get_param("~interval")
         self._color_balance_percentage = rospy.get_param("~color_balance_scale")
         self._output_scale = rospy.get_param("~output_scale")
+
+        # Initialize objects and data
+        self.ai = AntiInstagram()
+        self.bridge = CvBridge()
+        self.image_msg = None
+        self.mutex = Lock()
+
+        # Active flag (controlled by ~switch service)
+        self._active = True
 
         # Construct publisher
         self.pub = rospy.Publisher(
@@ -48,20 +56,11 @@ class AntiInstagramNode(DTROS):
             queue_size=1,
         )
 
-    # Active flag (controlled by ~switch service)
-    self._active = True
+        # Initialize Timer
+        rospy.Timer(rospy.Duration(self._interval), self.calculate_new_parameters)
 
-    # Initialize Timer
-    rospy.Timer(rospy.Duration(self._interval), self.calculate_new_parameters)
-
-        # Initialize objects and data
-        self.ai = AntiInstagram()
-        self.bridge = CvBridge()
-        self.image_msg = None
-        self.mutex = Lock()
-
-    # Service to switch node on/off (used by FSM)
-    self._srv_switch = rospy.Service("~switch", SetBool, self._cb_switch)
+        # Service to switch node on/off (used by FSM)
+        self._srv_switch = rospy.Service("~switch", SetBool, self._cb_switch)
 
         # ---
         self.log("Initialized.")
@@ -76,7 +75,8 @@ class AntiInstagramNode(DTROS):
                 image = self.bridge.compressed_imgmsg_to_cv2(self.image_msg, "bgr8")
             except ValueError as e:
                 self.log(f"Anti_instagram cannot decode image: {e}")
-        return image
+        return None
+    return image
 
     def calculate_new_parameters(self, event):
         if not self._active:
@@ -85,6 +85,8 @@ class AntiInstagramNode(DTROS):
             self.log("Waiting for first image!")
             return
         image = self.decode_image_msg()
+        if image is None:
+            return
         (lower_thresholds, higher_thresholds) = self.ai.calculate_color_balance_thresholds(
             image, self._output_scale, self._color_balance_percentage
         )
