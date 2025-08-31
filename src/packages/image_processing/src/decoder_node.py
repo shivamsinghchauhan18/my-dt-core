@@ -11,8 +11,7 @@ except Exception as e:
     HAVE_CV_BRIDGE = False
     rospy.logwarn("cv_bridge import failed: %s; will fall back to pure OpenCV path if enabled", e)
 
-import cv2
-import numpy as np
+# Note: OpenCV (cv2) and numpy will be imported lazily only if the fallback path is used
 
 from duckietown.dtros import DTROS, DTParam, NodeType, TopicType
 from dt_class_utils import DTReminder
@@ -24,12 +23,12 @@ class DecoderNode(DTROS):
 
         # parameters
         self.publish_freq = DTParam("~publish_freq", -1)
-    # Force pure-OpenCV path (bypass cv_bridge). If false, use cv_bridge when available
-    self.force_opencv = rospy.get_param("~force_opencv", False)
+        # Force pure-OpenCV path (bypass cv_bridge). If false, use cv_bridge when available
+        self.force_opencv = rospy.get_param("~force_opencv", False)
 
         # utility objects
-    self.use_cv_bridge = (not self.force_opencv) and HAVE_CV_BRIDGE
-    self.bridge = CvBridge() if self.use_cv_bridge else None
+        self.use_cv_bridge = (not self.force_opencv) and HAVE_CV_BRIDGE
+        self.bridge = CvBridge() if self.use_cv_bridge else None
         self.reminder = DTReminder(frequency=self.publish_freq.value)
 
         # subscribers
@@ -66,6 +65,13 @@ class DecoderNode(DTROS):
                 out_msg = self.bridge.cv2_to_imgmsg(img, "bgr8")
         else:
             # Pure OpenCV fallback: decode JPEG/PNG and build Image message manually
+            try:
+                # Lazy import to avoid TLS/loader issues when not needed
+                import numpy as np  # type: ignore
+                import cv2  # type: ignore
+            except Exception as e:
+                rospy.logerr_throttle(5.0, "decoder_node: OpenCV fallback unavailable: %s", e)
+                return
             with self.profiler("/cb/image/decode_opencv"):
                 np_arr = np.frombuffer(msg.data, dtype=np.uint8)
                 img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)

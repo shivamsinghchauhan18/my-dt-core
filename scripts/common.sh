@@ -60,3 +60,22 @@ roslaunch_echo() {
   echo "> roslaunch $*"
   roslaunch "$@"
 }
+
+# Workaround: TLS error importing OpenCV on ARM (libgomp static TLS)
+# Preload libgomp early if available and not already set
+maybe_preload_libgomp() {
+  if [ "$(uname -m)" = "aarch64" ] || [ "$(uname -m)" = "arm64" ]; then
+    local lib="/usr/lib/aarch64-linux-gnu/libgomp.so.1"
+    if [ -f "$lib" ]; then
+      case ":${LD_PRELOAD-}:" in
+        *":$lib:"*) ;; # already present
+        *) export LD_PRELOAD="${LD_PRELOAD-}$([ -n "${LD_PRELOAD-}" ] && echo :)$lib" ;;
+      esac
+      export OMP_NUM_THREADS="${OMP_NUM_THREADS:-1}"
+      export OPENBLAS_NUM_THREADS="${OPENBLAS_NUM_THREADS:-1}"
+    fi
+  fi
+}
+
+# Call once when sourcing common
+maybe_preload_libgomp

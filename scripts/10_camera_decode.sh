@@ -9,4 +9,9 @@ cd_repo_root
 source_ros
 source_ws
 
-roslaunch_echo duckietown_demos image_decoding.launch veh:="${VEHICLE_NAME}"
+extra_args=()
+if [ "${FORCE_OPENCV:-}" = "1" ] || [ "${FORCE_OPENCV:-}" = "true" ]; then
+	extra_args+=( decoder_node/force_opencv:=true )
+fi
+
+roslaunch_echo duckietown_demos image_decoding.launch veh:="${VEHICLE_NAME}" "${extra_args[@]}"
