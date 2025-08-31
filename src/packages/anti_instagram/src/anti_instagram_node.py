@@ -75,8 +75,8 @@ class AntiInstagramNode(DTROS):
                 image = self.bridge.compressed_imgmsg_to_cv2(self.image_msg, "bgr8")
             except ValueError as e:
                 self.log(f"Anti_instagram cannot decode image: {e}")
-        return None
-    return image
+                return None
+        return image
 
     def calculate_new_parameters(self, event):
         if not self._active:
