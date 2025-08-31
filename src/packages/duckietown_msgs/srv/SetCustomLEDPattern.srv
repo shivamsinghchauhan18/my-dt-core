@@ -1,0 +1,5 @@
+# Set custom LED pattern via LEDPattern msg
+LEDPattern pattern
+---
+bool success
+string message

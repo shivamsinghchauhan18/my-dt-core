@@ -8,9 +8,34 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
 )
 
-# Only include enhanced custom messages to avoid conflicts
-# In the overlay, do not rebuild or redefine messages to avoid conflicts with the
-# official dt-core duckietown_msgs. Enhanced custom messages live in
-# 'duckietown_enhanced_msgs'. This package only provides utilities.
+## Generate messages in the 'msg' folder
+add_message_files(
+  DIRECTORY msg
+  FILES
+    BoolStamped.msg
+    FSMState.msg
+    Segment.msg
+    SegmentList.msg
+    Twist2DStamped.msg
+    StopLineReading.msg
+    LEDPattern.msg
+    AntiInstagramThresholds.msg
+)
 
-catkin_package()
+## Generate services in the 'srv' folder
+add_service_files(
+  FILES
+    ChangePattern.srv
+)
+
+## Generate added messages and services with any dependencies listed here
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+  geometry_msgs
+  sensor_msgs
+)
+
+catkin_package(
+  CATKIN_DEPENDS message_runtime std_msgs geometry_msgs sensor_msgs
+)
