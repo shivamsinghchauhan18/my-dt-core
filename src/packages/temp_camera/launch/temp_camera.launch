@@ -1,0 +1,6 @@
+<launch>
+  <arg name="veh" default="blueduckie" />
+  <node pkg="temp_camera" type="temp_camera_node.py" name="camera_node" output="screen">
+    <param name="veh" value="$(arg veh)" />
+  </node>
+</launch>

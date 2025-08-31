@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>temp_camera</name>
+  <version>0.0.1</version>
+  <description>Temporary camera publisher for debugging/restore</description>
+  <maintainer email="you@example.com">You</maintainer>
+  <license>MIT</license>
+  <depend>rospy</depend>
+  <depend>sensor_msgs</depend>
+  <depend>cv_bridge</depend>
+  <depend>image_transport</depend>
+  <buildtool_depend>catkin</buildtool_depend>
+</package>
