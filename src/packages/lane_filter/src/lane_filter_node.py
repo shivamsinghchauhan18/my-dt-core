@@ -168,7 +168,6 @@ class PolynomialCurveFitter:
                 'curvature': curvature,
                 'processing_time': processing_time
             }
-            
         except np.linalg.LinAlgError as e:
             # Be quieter to avoid log spam; try to fall back to last good coefficients
             last = self.last_coefficients.get(lane_type)
