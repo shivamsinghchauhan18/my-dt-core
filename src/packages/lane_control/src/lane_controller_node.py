@@ -182,6 +182,22 @@ class LaneControllerNode(DTROS):
         
         self.log("Initialized! MPC enabled: %s" % self.params.get("~use_mpc", False))
 
+    # Lightweight logger to avoid dependency on DTROS.log availability across versions
+    def log(self, msg, level="info"):
+        try:
+            lvl = (level or "").lower()
+            if lvl == "debug":
+                rospy.logdebug(msg)
+            elif lvl in ("warn", "warning"):
+                rospy.logwarn(msg)
+            elif lvl == "error":
+                rospy.logerr(msg)
+            else:
+                rospy.loginfo(msg)
+        except Exception:
+            # Fallback to info if anything goes wrong
+            rospy.loginfo(msg)
+
     def cbObstacleStopLineReading(self, msg):
         """
         Callback storing the current obstacle distance, if detected.

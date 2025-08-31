@@ -565,11 +565,21 @@ class LineDetectorNode(DTROS):
                 
                 # Create a detection object with filtered results
                 from line_detector.detections import Detections
+                # Avoid ambiguous truth-value checks on numpy arrays by using explicit size/length
+                def _to_np_safe(val):
+                    if val is None:
+                        return np.array([])
+                    try:
+                        arr = np.array(val)
+                        return arr if arr.size > 0 else np.array([])
+                    except Exception:
+                        return np.array([])
+
                 detection_result = Detections(
-                    lines=np.array(filtered_result['lines']) if filtered_result['lines'] else np.array([]),
-                    normals=np.array(filtered_result['normals']) if filtered_result['normals'] else np.array([]),
+                    lines=_to_np_safe(filtered_result.get('lines')),
+                    normals=_to_np_safe(filtered_result.get('normals')),
                     map=detection_result.map if hasattr(detection_result, 'map') else np.array([]),
-                    centers=np.array(filtered_result['centers']) if filtered_result['centers'] else np.array([])
+                    centers=_to_np_safe(filtered_result.get('centers'))
                 )
                 
                 rospy.logdebug(f"[LineDetectorNode] {color} detection - "
