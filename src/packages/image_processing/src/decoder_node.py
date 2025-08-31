@@ -29,7 +29,8 @@ class DecoderNode(DTROS):
         # utility objects
         self.use_cv_bridge = (not self.force_opencv) and HAVE_CV_BRIDGE
         self.bridge = CvBridge() if self.use_cv_bridge else None
-        self.reminder = DTReminder(frequency=self.publish_freq.value)
+    # DTParam compatibility: in some distributions, .value is a callable
+        self.reminder = DTReminder(frequency=self._get_publish_freq())
 
         # subscribers
         self.sub_img = rospy.Subscriber(
@@ -42,7 +43,7 @@ class DecoderNode(DTROS):
             Image,
             queue_size=1,
             dt_topic_type=TopicType.PERCEPTION,
-            dt_healthy_freq=self.publish_freq.value,
+            dt_healthy_freq=self._get_publish_freq(),
             dt_help="Raw image",
         )
 
@@ -54,7 +55,7 @@ class DecoderNode(DTROS):
         if not self.switch:
             return
         # make sure this is a good time to publish (always keep this as last check)
-        if not self.reminder.is_time(frequency=self.publish_freq.value):
+        if not self.reminder.is_time(frequency=self._get_publish_freq()):
             return
         # turn 'compressed image message' into 'raw image'
         if self.use_cv_bridge:
@@ -94,6 +95,28 @@ class DecoderNode(DTROS):
         out_msg.header = msg.header
         # publish image
         self.pub_img.publish(out_msg)
+
+    # --- Helpers ---------------------------------------------------------
+    def _value_of(self, p, default=None):
+        """Safely extract the numeric value from a DTParam or return default.
+
+        DTParam.value can be a property or a callable depending on dtros version.
+        """
+        if p is None:
+            return default
+        v = getattr(p, "value", None)
+        try:
+            if callable(v):
+                return v()
+            if v is not None:
+                return v
+        except Exception:
+            pass
+        return default
+
+    def _get_publish_freq(self):
+        # default -1 means "no frequency constraint" for DTReminder/health checks
+        return self._value_of(self.publish_freq, -1)
 
 
 if __name__ == "__main__":
