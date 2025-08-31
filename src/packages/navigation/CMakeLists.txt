@@ -7,7 +7,7 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   message_generation
   geometry_msgs
-  duckietown_msgs
+  
 
 ## -- UNCOMMENT BELOW LINE FOR LAPTOP BUILD -- ##
 ##  rqt_gui_py
@@ -28,14 +28,13 @@ generate_messages(
   std_msgs
   sensor_msgs
   geometry_msgs
-  duckietown_msgs
 )
 
 
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES navigation
-  CATKIN_DEPENDS message_runtime std_msgs sensor_msgs geometry_msgs duckietown_msgs
+  CATKIN_DEPENDS message_runtime std_msgs sensor_msgs geometry_msgs
 #  DEPENDS system_lib
 )
 
