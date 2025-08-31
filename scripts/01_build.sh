@@ -17,6 +17,11 @@ if [ "${1:-}" = "clean" ]; then
 fi
 
 echo "[build] Running catkin_make at $REPO_ROOT"
+# Ensure message packages are not ignored
+if [ -f src/packages/duckietown_msgs/CATKIN_IGNORE ]; then
+  echo "[build] Removing CATKIN_IGNORE from duckietown_msgs to allow message generation"
+  rm -f src/packages/duckietown_msgs/CATKIN_IGNORE
+fi
 catkin_make
 
 echo "[build] Done. To use this workspace: source devel/setup.bash"

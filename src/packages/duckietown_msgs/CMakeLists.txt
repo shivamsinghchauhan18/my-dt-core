@@ -12,6 +12,8 @@ find_package(catkin REQUIRED COMPONENTS
 add_message_files(
   DIRECTORY msg
   FILES
+  AprilTagDetection.msg
+  AprilTagDetectionArray.msg
     BoolStamped.msg
     FSMState.msg
     Segment.msg
@@ -26,6 +28,9 @@ add_message_files(
 add_service_files(
   FILES
     ChangePattern.srv
+  SetCustomLEDPattern.srv
+  SetBool.srv
+  SetFSMState.srv
 )
 
 ## Generate added messages and services with any dependencies listed here
