@@ -294,20 +294,25 @@ class LaneController:
         Args:
             stop_line_distance (:obj:`float`): distance of the stop line, None if not detected.
         """
-        if stop_line_distance is None:
-            return self._param_value("~v_bar", 0.2)
-        else:
-
-            d1, d2 = (
-                self.parameters["~stop_line_slowdown"]["start"],
-                self.parameters["~stop_line_slowdown"]["end"],
-            )
+        v_bar = self._param_value("~v_bar", 0.2)
+        # If no distance or non-finite, keep nominal safe speed
+        if stop_line_distance is None or not np.isfinite(stop_line_distance):
+            return v_bar
+        try:
+            slowdown = self.parameters.get("~stop_line_slowdown", None)
+            if not slowdown or "start" not in slowdown or "end" not in slowdown:
+                return v_bar
+            d1 = float(slowdown.get("start", 0.4))
+            d2 = float(slowdown.get("end", 0.2))
+            if not np.isfinite(d1) or not np.isfinite(d2) or d1 <= d2:
+                return v_bar
             # d1 -> v_bar, d2 -> v_bar/2
             c = (0.5 * (d1 - stop_line_distance) + (stop_line_distance - d2)) / (d1 - d2)
-            v_bar = self._param_value("~v_bar", 0.2)
             v_new = v_bar * c
             v = np.max([v_bar / 2.0, np.min([v_bar, v_new])])
-            return v
+            return float(v)
+        except Exception:
+            return v_bar
 
     def integrate_errors(self, d_err, phi_err, dt):
         """Integrates error signals in lateral and heading direction.

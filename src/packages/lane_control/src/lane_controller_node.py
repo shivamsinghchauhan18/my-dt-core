@@ -331,19 +331,38 @@ class LaneControllerNode(DTROS):
         else:
 
             # Compute errors
-            d_err = pose_msg.d - self.params["~d_offset"]
-            phi_err = pose_msg.phi
+            d_offset = self.params.get("~d_offset", 0.0)
+            try:
+                d_offset = 0.0 if d_offset is None else float(d_offset)
+            except Exception:
+                d_offset = 0.0
+
+            d_err = float(pose_msg.d) - d_offset
+            phi_err = float(pose_msg.phi)
+
+            # Sanitize NaNs/Infs coming from upstream failures
+            if not np.isfinite(d_err):
+                self.log("Non-finite d_err from pose; resetting to 0.0", "warn")
+                d_err = 0.0
+            if not np.isfinite(phi_err):
+                self.log("Non-finite phi_err from pose; resetting to 0.0", "warn")
+                phi_err = 0.0
 
             # We cap the error if it grows too large
-            if np.abs(d_err) > self.params["~d_thres"]:
-                self.log("d_err too large, thresholding it!", "error")
-                d_err = np.sign(d_err) * self.params["~d_thres"]
+            d_thres = self.params.get("~d_thres", None)
+            try:
+                d_thres = float(d_thres) if d_thres is not None else None
+            except Exception:
+                d_thres = None
+            if d_thres is not None and np.abs(d_err) > d_thres:
+                self.log("d_err too large, thresholding it!", "warn")
+                d_err = np.sign(d_err) * d_thres
             
             # Robust DTParam access: .value could be a property or a callable depending on DTROS version
             theta_min = self._get_param("~theta_thres_min", default=-1.2)
             theta_max = self._get_param("~theta_thres_max", default=+1.2)
             if phi_err > theta_max or phi_err < theta_min:
-                self.log("phi_err too large/small, thresholding it!", "error")
+                self.log("phi_err too large/small, thresholding it!", "warn")
                 phi_err = np.maximum(theta_min, np.minimum(phi_err, theta_max))
 
             wheels_cmd_exec = [self.wheels_cmd_executed.vel_left, self.wheels_cmd_executed.vel_right]
@@ -361,13 +380,30 @@ class LaneControllerNode(DTROS):
                 )
 
             # For feedforward action (i.e. during intersection navigation)
-            omega += self.params["~omega_ff"]
+            try:
+                omega_ff = self.params.get("~omega_ff", 0.0)
+                omega_ff = float(omega_ff) if omega_ff is not None else 0.0
+            except Exception:
+                omega_ff = 0.0
+            omega += omega_ff
 
         # Initialize car control msg, add header from input message
         car_control_msg = Twist2DStamped()
         car_control_msg.header = pose_msg.header
 
         # Add commands to car message
+        # Ensure finite commands only
+        if not np.isfinite(v):
+            self.log("Non-finite v computed; forcing to 0.0", "warn")
+            v = 0.0
+        if not np.isfinite(omega):
+            self.log("Non-finite omega computed; forcing to 0.0", "warn")
+            omega = 0.0
+        # If no stop-lines active and computed speed is nearly zero due to upstream instability,
+        # allow a tiny crawl to help recover perception
+        if not (self.at_stop_line or self.at_obstacle_stop_line):
+            if abs(v) < 1e-3:
+                v = max(v, 0.05)
         car_control_msg.v = v
         car_control_msg.omega = omega
 
