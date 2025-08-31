@@ -65,6 +65,15 @@ class AntiInstagramNode(DTROS):
         # ---
         self.log("Initialized.")
 
+    # Simple logging wrapper for compatibility with existing calls
+    def log(self, msg, type: str = "info"):
+        if type == "err" or type == "error":
+            self.logerr(msg)
+        elif type == "warn" or type == "warning":
+            self.logwarn(msg)
+        else:
+            self.loginfo(msg)
+
     def store_image_msg(self, image_msg):
         with self.mutex:
             self.image_msg = image_msg

@@ -1395,9 +1395,11 @@ class FSMNode:
     def updateLights(self):
         lights = self._getLightsofState(self.state_msg.state)
         if lights is not None:
-            msg = String()
-            msg.data = lights
-            self.changePattern(msg)
+            # ChangePattern.srv expects a plain string pattern_name
+            try:
+                self.changePattern(lights)
+            except Exception as e:
+                rospy.logwarn(f"[{self.node_name}] Failed to change LED pattern: {e}")
 
     def cbEvent(self, msg, event_name):
         if msg.data == self.event_trigger_dict[event_name]:
