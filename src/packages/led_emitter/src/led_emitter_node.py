@@ -521,6 +521,25 @@ class LEDEmitterNode(DTROS):
         else:
             self.loginfo(msg)
 
+    # Ensure DTROS-like logging methods exist even if base class/shim lacks them
+    def loginfo(self, msg):
+        try:
+            super().loginfo(msg)
+        except Exception:
+            rospy.loginfo(f"[{self.node_name}] {msg}")
+
+    def logwarn(self, msg):
+        try:
+            super().logwarn(msg)
+        except Exception:
+            rospy.logwarn(f"[{self.node_name}] {msg}")
+
+    def logerr(self, msg):
+        try:
+            super().logerr(msg)
+        except Exception:
+            rospy.logerr(f"[{self.node_name}] {msg}")
+
     def srvSetCustomLEDPattern(self, req):
         """Service to set a custom pattern.
 

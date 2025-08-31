@@ -559,11 +559,21 @@ class LaneController:
     
     def _initialize_gain_schedule(self, parameters) -> GainSchedule:
         """Initialize gain schedule from ROS parameters"""
+        def _val(x, default):
+            v = parameters.get(x, default)
+            # DTParam in some distros exposes .value() method; others a property
+            if hasattr(v, 'get_value') and callable(getattr(v, 'get_value')):
+                return v.get_value()
+            if hasattr(v, 'value'):
+                attr = getattr(v, 'value')
+                return attr() if callable(attr) else attr
+            return v
+
         return GainSchedule(
-            base_k_d=parameters.get("~k_d", -6.0).value if hasattr(parameters.get("~k_d", -6.0), 'value') else parameters.get("~k_d", -6.0),
-            base_k_theta=parameters.get("~k_theta", -5.0).value if hasattr(parameters.get("~k_theta", -5.0), 'value') else parameters.get("~k_theta", -5.0),
-            base_k_Id=parameters.get("~k_Id", -0.3).value if hasattr(parameters.get("~k_Id", -0.3), 'value') else parameters.get("~k_Id", -0.3),
-            base_k_Iphi=parameters.get("~k_Iphi", 0.0).value if hasattr(parameters.get("~k_Iphi", 0.0), 'value') else parameters.get("~k_Iphi", 0.0),
+            base_k_d=_val("~k_d", -6.0),
+            base_k_theta=_val("~k_theta", -5.0),
+            base_k_Id=_val("~k_Id", -0.3),
+            base_k_Iphi=_val("~k_Iphi", 0.0),
             low_speed_threshold=parameters.get("~adaptive_low_speed_threshold", 0.1),
             high_speed_threshold=parameters.get("~adaptive_high_speed_threshold", 0.3),
             low_speed_k_d_scale=parameters.get("~adaptive_low_speed_k_d_scale", 1.5),

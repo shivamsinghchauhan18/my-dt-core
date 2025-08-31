@@ -58,6 +58,25 @@ class DTROS:
         if not rospy.core.is_initialized():
             rospy.init_node(node_name, anonymous=False)
 
+    # Minimal logging helpers for compatibility with Duckietown nodes
+    def loginfo(self, msg):
+        try:
+            rospy.loginfo(f"[{self.node_name}] {msg}")
+        except Exception:
+            rospy.loginfo(msg)
+
+    def logwarn(self, msg):
+        try:
+            rospy.logwarn(f"[{self.node_name}] {msg}")
+        except Exception:
+            rospy.logwarn(msg)
+
+    def logerr(self, msg):
+        try:
+            rospy.logerr(f"[{self.node_name}] {msg}")
+        except Exception:
+            rospy.logerr(msg)
+
 # Patch rospy.Publisher to ignore dt_topic_type kwarg gracefully
 _Publisher = rospy.Publisher
 def _Publisher_shim(*args, **kwargs):

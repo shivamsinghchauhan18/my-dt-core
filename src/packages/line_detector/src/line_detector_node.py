@@ -454,8 +454,8 @@ class LineDetectorNode(DTROS):
             "~thresholds", AntiInstagramThresholds, self.thresholds_cb, queue_size=1
         )
 
-    # Service to enable/disable node
-    self._srv_switch = rospy.Service("~switch", SetBool, self._cb_switch)
+        # Service to enable/disable node
+        self._srv_switch = rospy.Service("~switch", SetBool, self._cb_switch)
 
     def thresholds_cb(self, thresh_msg):
         self.anti_instagram_thresholds["lower"] = thresh_msg.low
