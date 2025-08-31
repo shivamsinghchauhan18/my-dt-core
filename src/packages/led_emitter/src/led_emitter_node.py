@@ -475,7 +475,7 @@ class LEDEmitterNode(DTROS):
         self.frequency = 1.0 / self._LED_protocol["signals"]["CAR_SIGNAL_A"]["frequency"]
         self.is_on = False
     # Active switch (can be toggled by external logic if needed)
-    self.switch = True
+        self.switch = True
         self.cycle_timer = rospy.Timer(rospy.Duration.from_sec(self.frequency / 2.0), self._cycle_timer)
 
         # Publishers
@@ -509,7 +509,17 @@ class LEDEmitterNode(DTROS):
         # Turn on the LEDs
         self.changePattern("WHITE")
 
+        # Use DTROS logging helpers
         self.log("Initialized.")
+
+    # --- Logging helpers (compat with existing calls) ---
+    def log(self, msg, type: str = "info"):
+        if type in ("err", "error"):
+            self.logerr(msg)
+        elif type in ("warn", "warning"):
+            self.logwarn(msg)
+        else:
+            self.loginfo(msg)
 
     def srvSetCustomLEDPattern(self, req):
         """Service to set a custom pattern.

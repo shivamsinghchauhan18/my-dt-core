@@ -74,6 +74,25 @@ class AntiInstagramNode(DTROS):
         else:
             self.loginfo(msg)
 
+    # Ensure DTROS-like logging methods exist even if parent does not provide them
+    def loginfo(self, msg):
+        try:
+            super().loginfo(msg)
+        except Exception:
+            rospy.loginfo(f"[{self.node_name}] {msg}")
+
+    def logwarn(self, msg):
+        try:
+            super().logwarn(msg)
+        except Exception:
+            rospy.logwarn(f"[{self.node_name}] {msg}")
+
+    def logerr(self, msg):
+        try:
+            super().logerr(msg)
+        except Exception:
+            rospy.logerr(f"[{self.node_name}] {msg}")
+
     def store_image_msg(self, image_msg):
         with self.mutex:
             self.image_msg = image_msg

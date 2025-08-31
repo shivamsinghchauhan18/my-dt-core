@@ -129,10 +129,14 @@ class MPCSolver:
         # Adaptive parameters
         self.current_horizon = parameters.prediction_horizon
         self.current_weights = self._initialize_weights()
-    # Logging setup (use Python logging; rospy.get_logger() is not available)
-    self.logger = logging.getLogger("MPCSolver")
-    rospy.loginfo("[MPCSolver] Initialized MPC solver with horizon: %d, dt: %.3f, scipy: %s", 
-              self.params.prediction_horizon, self.params.dt, SCIPY_AVAILABLE)
+        # Logging setup (use Python logging; rospy.get_logger() is not available)
+        self.logger = logging.getLogger("MPCSolver")
+        rospy.loginfo(
+            "[MPCSolver] Initialized MPC solver with horizon: %d, dt: %.3f, scipy: %s",
+            self.params.prediction_horizon,
+            self.params.dt,
+            SCIPY_AVAILABLE,
+        )
     
     def _initialize_weights(self) -> Dict[str, float]:
         """Initialize cost function weights"""
