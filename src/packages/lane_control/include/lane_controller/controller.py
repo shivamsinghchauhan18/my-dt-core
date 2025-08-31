@@ -236,10 +236,10 @@ class LaneController:
                           k_d, k_theta, k_Id, k_Iphi)
         else:
             # Use fixed gains
-            k_d = self.parameters["~k_d"].value
-            k_theta = self.parameters["~k_theta"].value
-            k_Id = self.parameters["~k_Id"].value
-            k_Iphi = self.parameters["~k_Iphi"].value
+            k_d = self._param_value("~k_d", -6.0)
+            k_theta = self._param_value("~k_theta", -5.0)
+            k_Id = self._param_value("~k_Id", -0.3)
+            k_Iphi = self._param_value("~k_Iphi", 0.0)
             
             rospy.logdebug("[LaneController] Using fixed gains: k_d=%.3f, k_theta=%.3f, k_Id=%.3f, k_Iphi=%.3f",
                           k_d, k_theta, k_Id, k_Iphi)
@@ -270,6 +270,21 @@ class LaneController:
 
         return v, omega
 
+    # --- Internal helpers -------------------------------------------------
+    def _param_value(self, key: str, default=None):
+        p = self.parameters.get(key, default)
+        if p is None:
+            return default
+        try:
+            if hasattr(p, 'get_value') and callable(getattr(p, 'get_value')):
+                return p.get_value()
+            if hasattr(p, 'value'):
+                v = getattr(p, 'value')
+                return v() if callable(v) else v
+        except Exception:
+            pass
+        return p
+
     def compute_velocity(self, stop_line_distance):
         """Linearly decrease velocity if approaching a stop line.
 
@@ -280,7 +295,7 @@ class LaneController:
             stop_line_distance (:obj:`float`): distance of the stop line, None if not detected.
         """
         if stop_line_distance is None:
-            return self.parameters["~v_bar"].value
+            return self._param_value("~v_bar", 0.2)
         else:
 
             d1, d2 = (
@@ -289,10 +304,9 @@ class LaneController:
             )
             # d1 -> v_bar, d2 -> v_bar/2
             c = (0.5 * (d1 - stop_line_distance) + (stop_line_distance - d2)) / (d1 - d2)
-            v_new = self.parameters["~v_bar"].value * c
-            v = np.max(
-                [self.parameters["~v_bar"].value / 2.0, np.min([self.parameters["~v_bar"].value, v_new])]
-            )
+            v_bar = self._param_value("~v_bar", 0.2)
+            v_new = v_bar * c
+            v = np.max([v_bar / 2.0, np.min([v_bar, v_new])])
             return v
 
     def integrate_errors(self, d_err, phi_err, dt):
