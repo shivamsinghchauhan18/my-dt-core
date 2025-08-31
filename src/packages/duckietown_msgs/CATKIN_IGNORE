@@ -1,0 +1,1 @@
+# This overlay duckietown_msgs is disabled to avoid shadowing the official dt-core messages during build.
