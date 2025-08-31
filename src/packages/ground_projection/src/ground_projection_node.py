@@ -86,6 +86,27 @@ class GroundProjectionNode(DTROS):
         # self.service_img_coord_ = rospy.Service("~get_image_coordinate", GetImageCoord,
         # self.get_image_coordinate_cb)
 
+    # Provide a robust logger interface in case DTROS.log/logerr are unavailable in this runtime
+    def log(self, msg, level="info"):
+        try:
+            lvl = (level or "").lower()
+            if lvl == "debug":
+                rospy.logdebug(msg)
+            elif lvl in ("warn", "warning"):
+                rospy.logwarn(msg)
+            elif lvl == "error":
+                rospy.logerr(msg)
+            else:
+                rospy.loginfo(msg)
+        except Exception:
+            rospy.loginfo(msg)
+
+    def logerr(self, msg):
+        try:
+            rospy.logerr(msg)
+        except Exception:
+            rospy.loginfo(msg)
+
     def cb_camera_info(self, msg: CameraInfo):
         """
         Initializes a :py:class:`image_processing.GroundProjectionGeometry` object and a
