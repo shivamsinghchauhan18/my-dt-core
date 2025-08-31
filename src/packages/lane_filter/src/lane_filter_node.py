@@ -100,7 +100,7 @@ class PolynomialCurveFitter:
             dict: Curve fitting results including coefficients and metrics
         """
         start_time = time.time()
-        
+
         if len(x_points) < self.min_points:
             rospy.logdebug(f"[PolynomialCurveFitter] Insufficient points ({len(x_points)}) for {lane_type} curve fitting")
             return {
@@ -111,20 +111,20 @@ class PolynomialCurveFitter:
                 'curvature': 0.0,
                 'processing_time': time.time() - start_time
             }
-        
-    try:
+
+        try:
             # Fit polynomial using least squares
             coefficients = np.polyfit(x_points, y_points, self.polynomial_degree)
-            
+
             # Calculate fitting error (RMSE)
             y_pred = np.polyval(coefficients, x_points)
             fitting_error = np.sqrt(np.mean((y_points - y_pred) ** 2))
-            
+
             # Calculate R-squared
             ss_res = np.sum((y_points - y_pred) ** 2)
             ss_tot = np.sum((y_points - np.mean(y_points)) ** 2)
             r_squared = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0.0
-            
+
             # Calculate curvature at the center point
             if self.polynomial_degree >= 2:
                 # For polynomial y = ax^2 + bx + c, curvature = |2a| / (1 + (2ax + b)^2)^(3/2)
@@ -135,7 +135,7 @@ class PolynomialCurveFitter:
                 curvature = abs(d2y_dx2) / (1 + dy_dx**2)**(3/2)
             else:
                 curvature = 0.0
-            
+
             # Store in history for temporal smoothing
             curve_data = {
                 'coefficients': coefficients,
@@ -145,21 +145,23 @@ class PolynomialCurveFitter:
                 'timestamp': time.time()
             }
             self.curve_history[lane_type].append(curve_data)
-            
+
             # Update metrics
             self.fitting_errors[lane_type] = fitting_error
             self.last_coefficients[lane_type] = coefficients
-            
+
             processing_time = time.time() - start_time
-            
+
             # Log curve fitting details
-            rospy.logdebug(f"[PolynomialCurveFitter] {lane_type} curve fitting - "
-                          f"Coefficients: {coefficients}, "
-                          f"RMSE: {fitting_error:.4f}, "
-                          f"R²: {r_squared:.4f}, "
-                          f"Curvature: {curvature:.4f}, "
-                          f"Processing time: {processing_time*1000:.2f}ms")
-            
+            rospy.logdebug(
+                f"[PolynomialCurveFitter] {lane_type} curve fitting - "
+                f"Coefficients: {coefficients}, "
+                f"RMSE: {fitting_error:.4f}, "
+                f"R²: {r_squared:.4f}, "
+                f"Curvature: {curvature:.4f}, "
+                f"Processing time: {processing_time*1000:.2f}ms"
+            )
+
             return {
                 'success': True,
                 'coefficients': coefficients,
