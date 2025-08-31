@@ -1,0 +1,12 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Make healthcheck script executable",
+			"type": "shell",
+			"command": "chmod +x scripts/91_ros_healthcheck.sh",
+			"isBackground": false,
+			"group": "build"
+		}
+	]
+}
