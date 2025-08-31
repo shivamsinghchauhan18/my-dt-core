@@ -41,6 +41,10 @@ if [ -n "$VIDEO_PATH" ]; then
   rosparam set /temp_camera_file/__name__/file "$VIDEO_PATH" || true
 fi
 
+# Ensure temp_camera scripts are executable so roslaunch can find them
+chmod +x "$(dirname "$0")/../src/packages/temp_camera/scripts/temp_camera_file.py" || true
+chmod +x "$(dirname "$0")/../src/packages/temp_camera/scripts/publish_camera_info.py" || true
+
 # Run health check (will wait up to timeout seconds)
 # start health check in background (run directly since it's not a ROS package)
 PYTHON=$(which python3 || which python)

@@ -364,11 +364,11 @@ class LineDetectorNode(DTROS):
         # Initialize the DTROS parent class
         super(LineDetectorNode, self).__init__(node_name=node_name, node_type=NodeType.PERCEPTION)
 
-        # Define parameters
-        self._line_detector_parameters = rospy.get_param("~line_detector_parameters", None)
-        self._colors = rospy.get_param("~colors", None)
-        self._img_size = rospy.get_param("~img_size", None)
-        self._top_cutoff = rospy.get_param("~top_cutoff", None)
+    # Define parameters (provide safe defaults when config is missing)
+    self._line_detector_parameters = rospy.get_param("~line_detector_parameters", {}) or {}
+    self._colors = rospy.get_param("~colors", {}) or {}
+    self._img_size = rospy.get_param("~img_size", [120, 160]) or [120, 160]
+    self._top_cutoff = rospy.get_param("~top_cutoff", 40) or 40
         
         # Enhanced detection parameters
         self._adaptive_threshold_enabled = rospy.get_param("~adaptive_threshold_enabled", True)

@@ -37,9 +37,9 @@ class RectifierNode(DTROS):
             "~camera_info_in", CameraInfo, self.cb_camera_info, queue_size=1
         )
 
-    # publishers
-    self.pub_img = self._advertise_pub_img()
-    self.pub_camera_info = self._advertise_pub_camera_info()
+        # publishers
+        self.pub_img = self._advertise_pub_img()
+        self.pub_camera_info = self._advertise_pub_camera_info()
 
     def cb_camera_info(self, msg):
         # unsubscribe from camera_info
