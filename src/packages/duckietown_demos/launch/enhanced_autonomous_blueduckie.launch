@@ -24,7 +24,9 @@
     <arg name="performance_optimization" default="true"/>
     
     <!-- Robot-specific parameters for DB21J -->
-    <rosparam command="load" file="$(find duckietown_demos)/config/enhanced_autonomous_navigation_logging.conf"/>
+    <!-- The logging config is a log4j/properties file (not pure YAML). Do not load it with rosparam
+        (rosparam expects YAML). Use ROSCONSOLE_CONFIG_FILE to point to the file instead. -->
+    <env name="ROSCONSOLE_CONFIG_FILE" value="$(find duckietown_demos)/config/enhanced_autonomous_navigation_logging.conf"/>
 
     <!-- Ensure camera node is running to provide image/compressed and camera_info -->
     <group>
