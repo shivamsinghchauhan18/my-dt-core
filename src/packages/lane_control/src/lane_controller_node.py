@@ -40,6 +40,7 @@ class LaneControllerNode(DTROS):
 
     Publisher:
         ~car_cmd (:obj:`Twist2DStamped`): The computed control action
+        ~wheels_cmd (:obj:`WheelsCmdStamped`): Low-level wheel velocities derived from (v, omega)
     Subscribers:
         ~lane_pose (:obj:`LanePose`): The lane pose estimate from the lane filter
         ~intersection_navigation_pose (:obj:`LanePose`): The lane pose estimate from intersection navigation
@@ -151,6 +152,10 @@ class LaneControllerNode(DTROS):
         # Construct publishers
         self.pub_car_cmd = rospy.Publisher(
             "~car_cmd", Twist2DStamped, queue_size=1, dt_topic_type=TopicType.CONTROL
+        )
+        # Publish wheels_cmd directly so the wheels driver can move even without car_cmd switch
+        self.pub_wheels_cmd = rospy.Publisher(
+            "~wheels_cmd", WheelsCmdStamped, queue_size=1, dt_topic_type=TopicType.CONTROL
         )
 
         # Construct subscribers
@@ -294,6 +299,32 @@ class LaneControllerNode(DTROS):
             car_cmd_msg (:obj:`Twist2DStamped`): Message containing the requested control action.
         """
         self.pub_car_cmd.publish(car_cmd_msg)
+        # Also publish equivalent wheels command for the wheels driver
+        try:
+            # Retrieve vehicle geometry
+            L = float(self._get_param("~vehicle_wheelbase", default=0.1) or 0.1)
+            R = float(self._get_param("~vehicle_wheel_radius", default=0.0318) or 0.0318)
+            v = float(getattr(car_cmd_msg, "v", 0.0))
+            omega = float(getattr(car_cmd_msg, "omega", 0.0))
+
+            # Differential drive inverse kinematics
+            # left = (v - omega * L/2) / R; right = (v + omega * L/2) / R
+            left = (v - (omega * L / 2.0)) / R
+            right = (v + (omega * L / 2.0)) / R
+
+            # Guard against non-finite values
+            if not np.isfinite(left):
+                left = 0.0
+            if not np.isfinite(right):
+                right = 0.0
+
+            wheels_msg = WheelsCmdStamped()
+            wheels_msg.header = car_cmd_msg.header
+            wheels_msg.vel_left = float(left)
+            wheels_msg.vel_right = float(right)
+            self.pub_wheels_cmd.publish(wheels_msg)
+        except Exception as e:
+            self.log(f"Failed publishing wheels_cmd: {e}", "warn")
 
     def getControlAction(self, pose_msg):
         """Callback that receives a pose message and updates the related control command.
