@@ -25,6 +25,13 @@
     
     <!-- Robot-specific parameters for DB21J -->
     <rosparam command="load" file="$(find duckietown_demos)/config/enhanced_autonomous_navigation_logging.conf"/>
+
+    <!-- Ensure camera node is running to provide image/compressed and camera_info -->
+    <group>
+        <include file="$(find duckietown)/launch/camera_node.launch">
+            <arg name="veh" value="$(arg veh)"/>
+        </include>
+    </group>
     
     <!-- Enhanced Lane Detection System -->
     <group if="$(arg adaptive_lane_detection)">

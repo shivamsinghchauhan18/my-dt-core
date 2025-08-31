@@ -6,6 +6,9 @@
 	<group ns="$(arg veh)">
 	    <node pkg="line_detector" type="line_detector_node.py"  name="$(arg node_name)" output="screen" required="true">
 			<rosparam command="load" file="$(find line_detector)/config/$(arg node_name)/$(arg param_file_name).yaml"/>
+			<!-- Wire private topics to camera and Anti-Instagram -->
+			<remap from="~image/compressed" to="camera_node/image/compressed"/>
+			<remap from="~thresholds" to="anti_instagram_node/thresholds"/>
 		</node>
 	</group>
 

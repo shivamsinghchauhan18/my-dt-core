@@ -633,7 +633,14 @@ class LEDEmitterNode(DTROS):
         Args:
             msg (String): requested pattern name
         """
-        self.changePattern(str(msg.pattern_name.data))
+        # Support both definitions of the service:
+        # - pattern_name as a plain string ("string pattern_name")
+        # - pattern_name as std_msgs/String ("std_msgs/String pattern_name")
+        try:
+            pattern = msg.pattern_name.data  # std_msgs/String
+        except AttributeError:
+            pattern = msg.pattern_name       # plain string
+        self.changePattern(str(pattern))
         return ChangePatternResponse()
 
     def changePattern(self, pattern_name):
