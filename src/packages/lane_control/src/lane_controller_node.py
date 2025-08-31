@@ -167,6 +167,10 @@ class LaneControllerNode(DTROS):
         self.sub_wheels_cmd_executed = rospy.Subscriber(
             "~wheels_cmd", WheelsCmdStamped, self.cbWheelsCmdExecuted, queue_size=1
         )
+        # Subscribe to FSM mode to switch pose sources correctly
+        self.sub_fsm_mode = rospy.Subscriber(
+            "~fsm_mode", FSMState, self.cbMode, queue_size=1
+        )
         self.sub_stop_line = rospy.Subscriber(
             "~stop_line_reading", StopLineReading, self.cbStopLineReading, queue_size=1
         )
@@ -205,10 +209,21 @@ class LaneControllerNode(DTROS):
         Args:
             msg(:obj:`StopLineReading`): Message containing information about the virtual obstacle stopline.
         """
-    self.obstacle_stop_line_distance = np.sqrt(msg.stop_line_point.x**2 + msg.stop_line_point.y**2)
-    self.obstacle_stop_line_detected = msg.stop_line_detected
-    # This flag refers to obstacle-related stop line
-    self.at_obstacle_stop_line = msg.at_stop_line
+        try:
+            # Guard against missing/None stop_line_point
+            pt = getattr(msg, "stop_line_point", None)
+            if pt is not None:
+                x = float(getattr(pt, "x", 0.0))
+                y = float(getattr(pt, "y", 0.0))
+                self.obstacle_stop_line_distance = float(np.hypot(x, y))
+            else:
+                self.obstacle_stop_line_distance = None
+        except Exception:
+            # Never break the node in a subscriber callback
+            self.obstacle_stop_line_distance = None
+        self.obstacle_stop_line_detected = bool(getattr(msg, "stop_line_detected", False))
+        # This flag refers to obstacle-related stop line
+        self.at_obstacle_stop_line = bool(getattr(msg, "at_stop_line", False))
 
     def cbStopLineReading(self, msg):
         """Callback storing current distance to the next stopline, if one is detected.
@@ -216,10 +231,19 @@ class LaneControllerNode(DTROS):
         Args:
             msg (:obj:`StopLineReading`): Message containing information about the next stop line.
         """
-    self.stop_line_distance = np.sqrt(msg.stop_line_point.x**2 + msg.stop_line_point.y**2)
-    self.stop_line_detected = msg.stop_line_detected
-    # This flag refers to road stop line
-    self.at_stop_line = msg.at_stop_line
+        try:
+            pt = getattr(msg, "stop_line_point", None)
+            if pt is not None:
+                x = float(getattr(pt, "x", 0.0))
+                y = float(getattr(pt, "y", 0.0))
+                self.stop_line_distance = float(np.hypot(x, y))
+            else:
+                self.stop_line_distance = None
+        except Exception:
+            self.stop_line_distance = None
+        self.stop_line_detected = bool(getattr(msg, "stop_line_detected", False))
+        # This flag refers to road stop line
+        self.at_stop_line = bool(getattr(msg, "at_stop_line", False))
 
     def cbMode(self, fsm_state_msg):
 
@@ -287,6 +311,23 @@ class LaneControllerNode(DTROS):
         if self.at_stop_line or self.at_obstacle_stop_line:
             v = 0
             omega = 0
+            # Explain why we are not moving
+            try:
+                road_d = None if self.stop_line_distance is None else float(self.stop_line_distance)
+                obs_d = None if self.obstacle_stop_line_distance is None else float(self.obstacle_stop_line_distance)
+                self.log(
+                    "Zeroed by stop-line gating: at_stop_line=%s, at_obstacle_stop_line=%s, road_d=%s, obstacle_d=%s"
+                    % (
+                        str(self.at_stop_line),
+                        str(self.at_obstacle_stop_line),
+                        "None" if road_d is None else f"{road_d:.2f}",
+                        "None" if obs_d is None else f"{obs_d:.2f}",
+                    ),
+                    "warn",
+                )
+            except Exception:
+                # Never break control due to logging
+                pass
         else:
 
             # Compute errors
