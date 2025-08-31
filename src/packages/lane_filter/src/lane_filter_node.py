@@ -451,16 +451,14 @@ class LaneFilterNode(DTROS):
             "~seglist_filtered", SegmentList, queue_size=1, dt_topic_type=TopicType.DEBUG
         )
 
-    # FSM
-    # self.sub_switch = rospy.Subscriber(
-    #     "~switch", BoolStamped, self.cbSwitch, queue_size=1)
-    self.sub_fsm_mode = rospy.Subscriber("~fsm_mode", FSMState, self.cbMode, queue_size=1)
+        # FSM mode subscriber
+        self.sub_fsm_mode = rospy.Subscriber("~fsm_mode", FSMState, self.cbMode, queue_size=1)
 
-    # Service to switch node on/off (used by FSM)
-    self._active = True
-    self._srv_switch = rospy.Service("~switch", SetBool, self._cb_switch)
+        # Service to switch node on/off (used by FSM)
+        self._active = True
+        self._srv_switch = rospy.Service("~switch", SetBool, self._cb_switch)
 
-    rospy.loginfo("[LaneFilterNode] Initialized.")
+        rospy.loginfo("[LaneFilterNode] Initialized.")
 
     def cbTemporaryChangeParams(self, msg):
         """Callback that changes temporarily the filter's parameters.
@@ -518,8 +516,9 @@ class LaneFilterNode(DTROS):
         self.frame_count += 1
 
         # Log frame processing start
-        rospy.logdebug(f"[LaneFilterNode] Frame {self.frame_count} - "
-                      f"Processing {len(segment_list_msg.segments)} segments at {rospy.Time.now()}")
+        rospy.logdebug(
+            f"[LaneFilterNode] Frame {self.frame_count} - Processing {len(segment_list_msg.segments)} segments at {rospy.Time.now()}"
+        )
 
         # Step 1: predict
         current_time = rospy.get_time()
@@ -534,39 +533,40 @@ class LaneFilterNode(DTROS):
 
         # Step 3: Enhanced curve fitting and trajectory prediction
         curve_fitting_results = {}
+        curve_fitting_time = 0.0
         if self.curve_fitter:
             curve_fitting_start = time.time()
-            
+
             # Separate segments by color/type for individual curve fitting
-            white_segments = [s for s in segment_list_msg.segments if hasattr(s, 'color') and s.color == s.WHITE]
-            yellow_segments = [s for s in segment_list_msg.segments if hasattr(s, 'color') and s.color == s.YELLOW]
-            all_segments = segment_list_msg.segments
-            
-            # Fit curves for different lane types
-            lane_types = [
-                ('center', all_segments),
-                ('left', white_segments),
-                ('right', yellow_segments)
+            white_segments = [
+                s for s in segment_list_msg.segments if hasattr(s, "color") and s.color == s.WHITE
             ]
-            
+            yellow_segments = [
+                s for s in segment_list_msg.segments if hasattr(s, "color") and s.color == s.YELLOW
+            ]
+            all_segments = segment_list_msg.segments
+
+            # Fit curves for different lane types
+            lane_types = [("center", all_segments), ("left", white_segments), ("right", yellow_segments)]
+
             for lane_type, segments in lane_types:
                 if segments:
                     # Extract points and fit curve
                     x_points, y_points = self.curve_fitter.extract_lane_points(segments, lane_type)
                     curve_result = self.curve_fitter.fit_polynomial_curve(x_points, y_points, lane_type)
                     curve_fitting_results[lane_type] = curve_result
-                    
+
                     # Log curve fitting results
-                    if curve_result['success']:
-                        rospy.logdebug(f"[LaneFilterNode] {lane_type} curve fitting successful - "
-                                      f"RMSE: {curve_result['fitting_error']:.4f}, "
-                                      f"R²: {curve_result['r_squared']:.4f}")
+                    if curve_result["success"]:
+                        rospy.logdebug(
+                            f"[LaneFilterNode] {lane_type} curve fitting successful - RMSE: {curve_result['fitting_error']:.4f}, R²: {curve_result['r_squared']:.4f}"
+                        )
                     else:
                         rospy.logdebug(f"[LaneFilterNode] {lane_type} curve fitting failed")
-            
+
             curve_fitting_time = time.time() - curve_fitting_start
             self.curve_fitting_times.append(curve_fitting_time)
-            
+
             # Keep only recent timing data
             if len(self.curve_fitting_times) > 50:
                 self.curve_fitting_times.pop(0)
@@ -575,30 +575,29 @@ class LaneFilterNode(DTROS):
         [d_max, phi_max] = self.filter.getEstimate()
 
         # Enhanced lane pose with curve information
-        if self.curve_fitter and 'center' in curve_fitting_results and curve_fitting_results['center']['success']:
+        if self.curve_fitter and "center" in curve_fitting_results and curve_fitting_results["center"]["success"]:
             # Get smoothed coefficients for better stability
-            smoothed_coeffs = self.curve_fitter.get_smoothed_coefficients('center')
-            
+            smoothed_coeffs = self.curve_fitter.get_smoothed_coefficients("center")
+
             if smoothed_coeffs is not None:
                 # Predict future trajectory
                 current_x = 0.5  # Assume center of image as current position
                 extrapolation_result = self.curve_fitter.extrapolate_curve(
                     smoothed_coeffs, current_x, self._extrapolation_distance
                 )
-                
-                if extrapolation_result['success']:
+
+                if extrapolation_result["success"]:
                     # Enhance phi estimate with curve prediction
-                    predicted_heading = extrapolation_result['predicted_heading']
-                    predicted_curvature = extrapolation_result['predicted_curvature']
-                    
+                    predicted_heading = extrapolation_result["predicted_heading"]
+                    predicted_curvature = extrapolation_result["predicted_curvature"]
+
                     # Blend traditional estimate with curve-based prediction
                     curve_weight = 0.3  # Weight for curve-based estimate
                     phi_max = (1 - curve_weight) * phi_max + curve_weight * predicted_heading
-                    
-                    rospy.logdebug(f"[LaneFilterNode] Enhanced pose estimation - "
-                                  f"Original phi: {phi_max:.3f}, "
-                                  f"Predicted heading: {predicted_heading:.3f}, "
-                                  f"Predicted curvature: {predicted_curvature:.4f}")
+
+                    rospy.logdebug(
+                        f"[LaneFilterNode] Enhanced pose estimation - Original phi: {phi_max:.3f}, Predicted heading: {predicted_heading:.3f}, Predicted curvature: {predicted_curvature:.4f}"
+                    )
 
         # Getting the highest belief value from the belief matrix
         max_val = self.filter.getMax()
@@ -615,55 +614,40 @@ class LaneFilterNode(DTROS):
         lanePose.status = lanePose.NORMAL
 
         self.pub_lane_pose.publish(lanePose)
-        
+
         # Calculate total processing time
         total_processing_time = time.time() - frame_start_time
-        
+
         # Log comprehensive performance metrics
-        rospy.logdebug(f"[LaneFilterNode] Frame {self.frame_count} Performance - "
-                      f"Total: {total_processing_time*1000:.2f}ms, "
-                      f"Curve fitting: {curve_fitting_time*1000:.2f}ms, "
-                      f"Lane pose: d={d_max:.3f}, phi={phi_max:.3f}")
-        
+        rospy.logdebug(
+            f"[LaneFilterNode] Frame {self.frame_count} Performance - Total: {total_processing_time*1000:.2f}ms, Curve fitting: {curve_fitting_time*1000:.2f}ms, Lane pose: d={d_max:.3f}, phi={phi_max:.3f}"
+        )
+
         # Real-time monitoring
         current_time_monitor = time.time()
         if self.frame_count % 30 == 0:  # Every 30 frames
             time_since_last_log = current_time_monitor - self.last_performance_log
             avg_fps = 30.0 / time_since_last_log if time_since_last_log > 0 else 0
             avg_curve_fitting_time = np.mean(self.curve_fitting_times) if self.curve_fitting_times else 0
-            
-            performance_summary = f"[LaneFilterNode] Performance Summary (30 frames) - " \
-                                f"Avg FPS: {avg_fps:.1f}, " \
-                                f"Avg curve fitting: {avg_curve_fitting_time*1000:.2f}ms"
-            
+
+            performance_summary = (
+                f"[LaneFilterNode] Performance Summary (30 frames) - Avg FPS: {avg_fps:.1f}, Avg curve fitting: {avg_curve_fitting_time*1000:.2f}ms"
+            )
+
             if self.curve_fitter:
                 curve_metrics = self.curve_fitter.get_curve_metrics()
-                if 'center_avg_error' in curve_metrics:
+                if "center_avg_error" in curve_metrics:
                     performance_summary += f", Avg curve error: {curve_metrics['center_avg_error']:.4f}"
-                if 'center_avg_r_squared' in curve_metrics:
+                if "center_avg_r_squared" in curve_metrics:
                     performance_summary += f", Avg R²: {curve_metrics['center_avg_r_squared']:.3f}"
-            
+
             rospy.loginfo(performance_summary)
             self.last_performance_log = current_time_monitor
 
-        self.debugOutput(segment_list_msg, d_max, phi_max, timestamp_before_processing, curve_fitting_results)
+        self.debugOutput(
+            segment_list_msg, d_max, phi_max, timestamp_before_processing, curve_fitting_results
+        )
 
-    # --- Services ---
-    def _cb_switch(self, req: SetBool):
-        """Enable/disable this node.
-
-        Args:
-            req (duckietown_msgs/SetBool): req.data True to enable, False to disable
-
-        Returns:
-            duckietown_msgs/SetBoolResponse
-        """
-        self._active = bool(req.data)
-        status = "enabled" if self._active else "disabled"
-        rospy.loginfo(f"[LaneFilterNode] Switch: {status}")
-        return SetBoolResponse(success=True, message=f"LaneFilterNode {status}")
-
-    # --- Services ---
     def _cb_switch(self, req: SetBool):
         """Enable/disable this node.
 
