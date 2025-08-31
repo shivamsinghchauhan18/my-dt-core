@@ -440,7 +440,8 @@ class EnhancedSystemStartupManager:
                 'fsm_node': ('fsm', 'fsm_node.launch'),
                 'anti_instagram_node': ('anti_instagram', 'anti_instagram_node.launch'),
                 'led_emitter_node': ('led_emitter', 'led_emitter_node.launch'),
-                'camera_node': ('image_processing', 'camera_node.launch'),
+                # Camera launch lives in duckietown package on Duckiebot images
+                'camera_node': ('duckietown', 'camera_node.launch'),
                 'wheels_driver_node': ('duckiebot_interface', 'wheels_driver_node.launch'),
                 'line_detector_node': ('line_detector', 'line_detector_node.launch'),
                 'lane_filter_node': ('lane_filter', 'lane_filter_node.launch'),

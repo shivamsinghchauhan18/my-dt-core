@@ -10,6 +10,7 @@ import yaml
 import rospy
 from cv_bridge import CvBridge
 from duckietown.dtros import DTROS, NodeType, TopicType
+from duckietown_msgs.srv import SetBool, SetBoolResponse
 from duckietown_msgs.msg import Segment, SegmentList
 from geometry_msgs.msg import Point as PointMsg
 from image_processing.ground_projection_geometry import GroundProjectionGeometry, Point
@@ -57,7 +58,11 @@ class GroundProjectionNode(DTROS):
         self.first_processing_done = False
         self.camera_info_received = False
 
-        # subscribers
+    # Service to switch node on/off (used by FSM)
+        self._active = True
+        self._srv_switch = rospy.Service("~switch", SetBool, self._cb_switch)
+
+    # subscribers
         self.sub_camera_info = rospy.Subscriber("~camera_info", CameraInfo, self.cb_camera_info, queue_size=1)
         self.sub_lineseglist_ = rospy.Subscriber(
             "~lineseglist_in", SegmentList, self.lineseglist_cb, queue_size=1
@@ -165,6 +170,8 @@ class GroundProjectionNode(DTROS):
             unrectified images
 
         """
+        if not getattr(self, "_active", True):
+            return
         if self.camera_info_received:
             seglist_out = SegmentList()
             seglist_out.header = seglist_msg.header
@@ -187,6 +194,21 @@ class GroundProjectionNode(DTROS):
                 self.pub_debug_img.publish(debug_image_msg)
         else:
             self.log("Waiting for a CameraInfo message", "warn")
+
+    # --- Services ---
+    def _cb_switch(self, req: SetBool):
+        """Enable/disable this node.
+
+        Args:
+            req (duckietown_msgs/SetBool): req.data True to enable, False to disable
+
+        Returns:
+            duckietown_msgs/SetBoolResponse
+        """
+        self._active = bool(req.data)
+        status = "enabled" if self._active else "disabled"
+        self.log(f"Switch: {status}")
+        return SetBoolResponse(success=True, message=f"GroundProjectionNode {status}")
 
     # def get_ground_coordinate_cb(self, req):
     #     return GetGroundCoordResponse(self.pixel_msg_to_ground_msg(req.uv))
