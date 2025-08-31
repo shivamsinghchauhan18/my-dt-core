@@ -13,7 +13,8 @@ compmake-z6==6.1.5
 torch>=1.9.0,<2.0.0
 torchvision>=0.10.0,<1.0.0
 ultralytics>=8.0.0,<9.0.0
-scipy>=1.7.0,<2.0.0
+# Use system SciPy from apt to match system NumPy and ROS packages
+# scipy
 # Use OpenCV from the base image (apt-based). Avoid pip opencv to prevent ABI conflicts with apt numpy.
 # opencv-python
 # Rely on base image numpy (apt) to match OpenCV. Avoid pinning pip numpy here.

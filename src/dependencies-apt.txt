@@ -5,6 +5,7 @@ ros-noetic-rqt
 ros-noetic-rqt-common-plugins
 libyaml-cpp-dev
 python3-sklearn
+python3-scipy
 iputils-ping
 python3-tk
 
