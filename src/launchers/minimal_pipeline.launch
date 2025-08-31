@@ -1,0 +1,63 @@
+<launch>
+  <!-- Minimal pipeline for a single vehicle. Start with a roscore, then run this launch. -->
+
+  <!-- Vehicle name used to namespace topics -->
+  <arg name="veh" default="blueduckie" />
+
+  <!-- Camera node (publishes compressed images). If use_file=true, run temp_camera_file.py -->
+  <arg name="use_file" default="false" />
+  <group if="$(arg use_file)">
+    <node pkg="temp_camera" type="temp_camera_file.py" name="temp_camera_file" output="screen" cwd="$(find temp_camera)/scripts">
+      <param name="~veh" value="$(arg veh)" />
+      <param name="~file" value="$(find temp_camera)/data/sample_frames" />
+      <param name="~rate" value="10" />
+      <param name="~loop" value="true" />
+    </node>
+  </group>
+  <group unless="$(arg use_file)">
+    <node pkg="temp_camera" type="temp_camera_node.py" name="temp_camera_node" output="screen" args="" cwd="$(find temp_camera)/scripts">
+      <param name="~veh" value="$(arg veh)" />
+      <!-- device and rate can be adjusted to use a file or /dev/videoX -->
+      <param name="~device" value="/dev/video0" />
+      <param name="~rate" value="10" />
+    </node>
+  </group>
+
+  <!-- CameraInfo publisher (latches CameraInfo) -->
+  <node pkg="temp_camera" type="publish_camera_info.py" name="camera_info_publisher" output="screen" cwd="$(find temp_camera)/scripts">
+    <param name="~veh" value="$(arg veh)" />
+    <!-- Optional: point to a calibration YAML inside package or custom path -->
+    <param name="~calib_file" value="$(find temp_camera)/config/blueduckie.yaml" />
+  </node>
+
+  <!-- Decoder: compressed image -> raw Image -->
+  <node pkg="image_processing" type="decoder_node.py" name="decoder_node" output="screen" cwd="$(find image_processing)/src">
+    <param name="~image_in" value="/$(arg veh)/camera_node/image/compressed" />
+    <param name="~image_out" value="/$(arg veh)/camera_node/image/raw" />
+  </node>
+
+  <!-- Rectifier: raw compressed -> rectified compressed + camera_info -->
+  <node pkg="image_processing" type="rectifier_node.py" name="rectifier_node" output="screen" cwd="$(find image_processing)/src">
+    <param name="~image_in" value="/$(arg veh)/camera_node/image/compressed" />
+    <param name="~camera_info_in" value="/$(arg veh)/camera_node/camera_info" />
+  </node>
+
+  <!-- AntiInstagram: reads uncorrected images and publishes thresholds -->
+  <node pkg="anti_instagram" type="anti_instagram_node.py" name="anti_instagram_node" output="screen" cwd="$(find anti_instagram)/src">
+    <param name="~uncorrected_image/compressed" value="/$(arg veh)/camera_node/image/compressed" />
+    <param name="~interval" value="1.0" />
+    <param name="~color_balance_scale" value="0.1" />
+    <param name="~output_scale" value="1.0" />
+  </node>
+
+  <!-- Line detector: subscribes to rectified image and thresholds -->
+  <node pkg="line_detector" type="line_detector_node.py" name="line_detector_node" output="screen" cwd="$(find line_detector)/src">
+    <rosparam file="$(find line_detector)/config/line_detector_node/default.yaml" command="load" />
+    <param name="~" value="/$(arg veh)/camera_node" />
+  </node>
+
+  <!-- Lane filter and controller -->
+  <node pkg="lane_filter" type="lane_filter_node.py" name="lane_filter_node" output="screen" cwd="$(find lane_filter)/src"/>
+  <node pkg="lane_control" type="lane_controller_node.py" name="lane_controller_node" output="screen" cwd="$(find lane_control)/src"/>
+
+</launch>
