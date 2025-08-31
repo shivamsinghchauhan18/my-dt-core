@@ -296,9 +296,12 @@ class LaneControllerNode(DTROS):
                 self.log("d_err too large, thresholding it!", "error")
                 d_err = np.sign(d_err) * self.params["~d_thres"]
             
-            if phi_err > self.params["~theta_thres_max"].value or phi_err < self.params["~theta_thres_min"].value:
+            # Robust DTParam access: .value could be a property or a callable depending on DTROS version
+            theta_min = self._get_param("~theta_thres_min", default=-1.2)
+            theta_max = self._get_param("~theta_thres_max", default=+1.2)
+            if phi_err > theta_max or phi_err < theta_min:
                 self.log("phi_err too large/small, thresholding it!", "error")
-                phi_err = np.maximum(self.params["~theta_thres_min"].value, np.minimum(phi_err, self.params["~theta_thres_max"].value))
+                phi_err = np.maximum(theta_min, np.minimum(phi_err, theta_max))
 
             wheels_cmd_exec = [self.wheels_cmd_executed.vel_left, self.wheels_cmd_executed.vel_right]
             if self.obstacle_stop_line_detected:
@@ -399,6 +402,30 @@ class LaneControllerNode(DTROS):
         """Updates parameters in the controller object."""
 
         self.controller.update_parameters(self.params)
+
+    # --- Internal helpers -------------------------------------------------
+    def _get_param(self, key, default=None):
+        """Safely retrieve a parameter value from self.params.
+
+        Supports both raw values (from rospy.get_param) and DTParam where
+        the value can be exposed either as a property or as a callable.
+        """
+        p = self.params.get(key, None)
+        if p is None:
+            return default
+        # DTParam compatibility: value may be a property or a method
+        v = getattr(p, "value", None)
+        if v is None:
+            # Not a DTParam, likely a raw value
+            return p
+        try:
+            return v() if callable(v) else v
+        except Exception:
+            # Fall back to default/raw
+            try:
+                return p.value()
+            except Exception:
+                return p if p is not None else default
 
 
 if __name__ == "__main__":
