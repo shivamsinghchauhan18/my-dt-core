@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>duckietown_dtros_shim</name>
+  <version>0.1.0</version>
+  <description>Fallback shim for duckietown.dtros when the official package is unavailable. Provides minimal DTROS/DTParam/NodeType/TopicType and patches rospy.Publisher to ignore dt_topic_type.</description>
+
+  <maintainer email="maintainer@duckietown.org">Duckietown</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <exec_depend>rospy</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+
+  <export/>
+</package>
