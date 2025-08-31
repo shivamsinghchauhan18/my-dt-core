@@ -36,13 +36,12 @@ class DecoderNode(DTROS):
         self.sub_img = rospy.Subscriber(
             "~image_in", CompressedImage, self.cb_image, queue_size=1, buff_size=10 * 1024 * 1024
         )
-
     # publishers
     self.pub_img = self._advertise_image_out()
 
     def cb_image(self, msg):
-        # make sure this matters to somebody
-        if not self.pub_img.anybody_listening():
+    # make sure this matters to somebody (compatible with plain rospy)
+        if not self._anybody_listening(self.pub_img):
             return
         # make sure the node is not switched off
         if not self.switch:
@@ -105,6 +104,20 @@ class DecoderNode(DTROS):
         except TypeError:
             # Shim/vanilla rospy without dt_* kwargs
             return rospy.Publisher("~image_out", Image, queue_size=1)
+
+    def _anybody_listening(self, pub):
+        """Return True if there are subscribers; default to True if unknown.
+
+        Works with dtros Publisher (anybody_listening) and plain rospy (get_num_connections).
+        """
+        try:
+            return bool(pub.anybody_listening())
+        except Exception:
+            try:
+                return int(pub.get_num_connections()) > 0
+            except Exception:
+                # Unknown publisher type; publish anyway
+                return True
 
     def _value_of(self, p, default=None):
         """Safely extract the numeric value from a DTParam or return default.
