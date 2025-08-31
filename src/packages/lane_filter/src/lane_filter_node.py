@@ -24,8 +24,9 @@ class PolynomialCurveFitter:
     trajectory prediction capabilities for predictive lane following.
     """
     
-    def __init__(self, polynomial_degree=2, min_points=5, extrapolation_distance=1.0, 
+    def __init__(self, polynomial_degree=1, min_points=8, extrapolation_distance=1.0, 
                  smoothing_factor=0.1, history_size=10):
+        # Prefer a more stable fit by default: linear with more points
         self.polynomial_degree = polynomial_degree
         self.min_points = min_points
         self.extrapolation_distance = extrapolation_distance
@@ -111,7 +112,7 @@ class PolynomialCurveFitter:
                 'processing_time': time.time() - start_time
             }
         
-        try:
+    try:
             # Fit polynomial using least squares
             coefficients = np.polyfit(x_points, y_points, self.polynomial_degree)
             
@@ -169,7 +170,20 @@ class PolynomialCurveFitter:
             }
             
         except np.linalg.LinAlgError as e:
-            rospy.logwarn(f"[PolynomialCurveFitter] Curve fitting failed for {lane_type}: {e}")
+            # Be quieter to avoid log spam; try to fall back to last good coefficients
+            last = self.last_coefficients.get(lane_type)
+            if last is not None:
+                y_pred = np.polyval(last, x_points) if len(x_points) else np.array([])
+                fitting_error = float(np.sqrt(np.mean((y_points - y_pred) ** 2))) if len(x_points) else float('inf')
+                return {
+                    'success': True,
+                    'coefficients': last,
+                    'fitting_error': fitting_error,
+                    'r_squared': 0.0,
+                    'curvature': 0.0,
+                    'processing_time': time.time() - start_time
+                }
+            rospy.logdebug(f"[PolynomialCurveFitter] Curve fitting failed for {lane_type}: {e}")
             return {
                 'success': False,
                 'coefficients': None,

@@ -156,7 +156,11 @@ class LaneControllerNode(DTROS):
         # Publish wheels_cmd directly so the wheels driver can move even without car_cmd switch
         self.pub_wheels_cmd = rospy.Publisher(
             "~wheels_cmd", WheelsCmdStamped, queue_size=1, dt_topic_type=TopicType.CONTROL
-        )
+    )
+
+    # Safety parameters
+        self.params["~max_linear_speed"] = rospy.get_param("~max_linear_speed", 0.15)
+        self.params["~max_wheel_speed"] = rospy.get_param("~max_wheel_speed", 12.0)  # rad/s
 
         # Construct subscribers
         self.sub_lane_reading = rospy.Subscriber(
@@ -190,6 +194,19 @@ class LaneControllerNode(DTROS):
         self.gain_scheduling_log_time = 0.0
         
         self.log("Initialized! MPC enabled: %s" % self.params.get("~use_mpc", False))
+
+        # Ensure safe stop on shutdown
+        try:
+            rospy.on_shutdown(self._on_shutdown)
+        except Exception:
+            pass
+
+        # Safety watchdog: stop if no pose/control activity
+        try:
+            self._watchdog_last_pub = rospy.Time.now().to_sec()
+            self.safety_timer = rospy.Timer(rospy.Duration(0.2), self._safety_watchdog)
+        except Exception:
+            pass
 
     # Lightweight logger to avoid dependency on DTROS.log availability across versions
     def log(self, msg, level="info"):
@@ -298,6 +315,13 @@ class LaneControllerNode(DTROS):
         Args:
             car_cmd_msg (:obj:`Twist2DStamped`): Message containing the requested control action.
         """
+        # Cap linear speed for safety
+        try:
+            v_cap = float(self._get_param("~max_linear_speed", default=0.25) or 0.25)
+            if abs(car_cmd_msg.v) > v_cap:
+                car_cmd_msg.v = np.clip(car_cmd_msg.v, -v_cap, v_cap)
+        except Exception:
+            pass
         self.pub_car_cmd.publish(car_cmd_msg)
         # Also publish equivalent wheels command for the wheels driver
         try:
@@ -320,11 +344,32 @@ class LaneControllerNode(DTROS):
 
             wheels_msg = WheelsCmdStamped()
             wheels_msg.header = car_cmd_msg.header
-            wheels_msg.vel_left = float(left)
-            wheels_msg.vel_right = float(right)
+            # Clamp wheel speeds to safe limits
+            w_cap = float(self._get_param("~max_wheel_speed", default=12.0) or 12.0)
+            wheels_msg.vel_left = float(np.clip(left, -w_cap, w_cap))
+            wheels_msg.vel_right = float(np.clip(right, -w_cap, w_cap))
             self.pub_wheels_cmd.publish(wheels_msg)
         except Exception as e:
             self.log(f"Failed publishing wheels_cmd: {e}", "warn")
+
+    def _on_shutdown(self):
+        # Publish zero commands to stop the robot on shutdown
+        try:
+            zero_twist = Twist2DStamped()
+            zero_twist.v = 0.0
+            zero_twist.omega = 0.0
+            self.pub_car_cmd.publish(zero_twist)
+
+            zero_wheels = WheelsCmdStamped()
+            zero_wheels.vel_left = 0.0
+            zero_wheels.vel_right = 0.0
+            self.pub_wheels_cmd.publish(zero_wheels)
+            try:
+                rospy.sleep(0.2)
+            except Exception:
+                pass
+        except Exception:
+            pass
 
     def getControlAction(self, pose_msg):
         """Callback that receives a pose message and updates the related control command.
@@ -434,12 +479,22 @@ class LaneControllerNode(DTROS):
         # allow a tiny crawl to help recover perception
         if not (self.at_stop_line or self.at_obstacle_stop_line):
             if abs(v) < 1e-3:
-                v = max(v, 0.05)
+                v = max(v, 0.02)
+        # If lane estimate is uncertain, reduce speed further
+        try:
+            if hasattr(pose_msg, 'in_lane') and not bool(pose_msg.in_lane):
+                v = np.sign(v) * min(abs(v), 0.05)
+        except Exception:
+            pass
         car_control_msg.v = v
         car_control_msg.omega = omega
 
         self.publishCmd(car_control_msg)
         self.last_s = current_s
+        try:
+            self._watchdog_last_pub = current_s
+        except Exception:
+            pass
         
         # Comprehensive logging for predictive control
         if self.params["~verbose"] >= 2:
@@ -536,6 +591,23 @@ class LaneControllerNode(DTROS):
                 return p.value()
             except Exception:
                 return p if p is not None else default
+
+    def _safety_watchdog(self, _event):
+        try:
+            now = rospy.Time.now().to_sec()
+            last = getattr(self, '_watchdog_last_pub', now)
+            if (now - last) > 0.5:
+                zero_twist = Twist2DStamped()
+                zero_twist.v = 0.0
+                zero_twist.omega = 0.0
+                self.pub_car_cmd.publish(zero_twist)
+                zero_wheels = WheelsCmdStamped()
+                zero_wheels.vel_left = 0.0
+                zero_wheels.vel_right = 0.0
+                self.pub_wheels_cmd.publish(zero_wheels)
+                self._watchdog_last_pub = now
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":

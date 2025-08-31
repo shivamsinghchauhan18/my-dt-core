@@ -225,9 +225,19 @@ class EnhancedVehicleModel:
         # Validate state constraints
         constraint_violations = self._check_state_constraints(new_state)
         if constraint_violations:
-            self.constraint_violations.extend(constraint_violations)
+            # Normalize violations to dicts with timestamp for robust diagnostics
+            ts = time.time()
+            for v in constraint_violations:
+                if isinstance(v, dict):
+                    # Ensure timestamp exists
+                    if 'timestamp' not in v:
+                        v['timestamp'] = ts
+                    self.constraint_violations.append(v)
+                else:
+                    # Treat as message string
+                    self.constraint_violations.append({'message': str(v), 'timestamp': ts})
             rospy.logdebug("[EnhancedVehicleModel] State constraint violations: %s", 
-                          ', '.join(constraint_violations))
+                          ', '.join([str(v) for v in constraint_violations]))
     
     def _check_state_constraints(self, state: VehicleState) -> list:
         """Check if state violates physical constraints"""
@@ -456,8 +466,19 @@ class EnhancedVehicleModel:
     
     def get_model_diagnostics(self) -> Dict[str, Any]:
         """Get model diagnostics and performance metrics"""
-        recent_violations = [v for v in self.constraint_violations if time.time() - v.get('timestamp', 0) < 60]
-        recent_predictions = [p for p in self.prediction_history if time.time() - p['timestamp'] < 60]
+        # Handle both dict (with timestamp) and legacy string entries safely
+        now = time.time()
+        recent_violations = []
+        for v in self.constraint_violations:
+            if isinstance(v, dict):
+                ts = v.get('timestamp', 0)
+                if now - ts < 60:
+                    recent_violations.append(v)
+            else:
+                # Legacy string entries: include but cannot age them; consider recent
+                recent_violations.append({'message': str(v), 'timestamp': now})
+
+        recent_predictions = [p for p in self.prediction_history if now - p.get('timestamp', 0) < 60]
         
         return {
             'parameters_valid': all(self.model_validation_metrics.values()),
