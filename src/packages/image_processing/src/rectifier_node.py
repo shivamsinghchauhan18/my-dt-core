@@ -23,7 +23,7 @@ class RectifierNode(DTROS):
 
         # utility objects
         self.jpeg = TurboJPEG()
-        self.reminder = DTReminder(frequency=self.publish_freq.value)
+        self.reminder = DTReminder(frequency=self._get_param_value(self.publish_freq, -1))
         self.camera_model = None
         self.rect_camera_info = None
         self.mapx, self.mapy = None, None
@@ -31,7 +31,7 @@ class RectifierNode(DTROS):
 
         # subscribers
         self.sub_img = rospy.Subscriber(
-            "~image_in", CompressedImage, self.cb_image, queue_size=1, buff_size="10MB"
+            "~image_in", CompressedImage, self.cb_image, queue_size=1, buff_size=10 * 1024 * 1024
         )
         self.sub_camera_info = rospy.Subscriber(
             "~camera_info_in", CameraInfo, self.cb_camera_info, queue_size=1
@@ -43,7 +43,7 @@ class RectifierNode(DTROS):
             CompressedImage,
             queue_size=1,
             dt_topic_type=TopicType.PERCEPTION,
-            dt_healthy_freq=self.publish_freq.value,
+            dt_healthy_freq=self._get_param_value(self.publish_freq, -1),
             dt_help="Rectified image (i.e., image with no distortion effects from the lens).",
         )
         self.pub_camera_info = rospy.Publisher(
@@ -51,7 +51,7 @@ class RectifierNode(DTROS):
             CameraInfo,
             queue_size=1,
             dt_topic_type=TopicType.PERCEPTION,
-            dt_healthy_freq=self.publish_freq.value,
+            dt_healthy_freq=self._get_param_value(self.publish_freq, -1),
             dt_help="Camera parameters for the (virtual) rectified camera.",
         )
 
@@ -71,7 +71,7 @@ class RectifierNode(DTROS):
         # find optimal rectified pinhole camera
         with self.profiler("/cb/camera_info/get_optimal_new_camera_matrix"):
             rect_camera_K, _ = cv2.getOptimalNewCameraMatrix(
-                self.camera_model.K, self.camera_model.D, (W, H), self.alpha.value
+                self.camera_model.K, self.camera_model.D, (W, H), self._get_param_value(self.alpha, 0.0)
             )
         # create rectification map
         with self.profiler("/cb/camera_info/init_undistort_rectify_map"):
@@ -103,7 +103,7 @@ class RectifierNode(DTROS):
         if not self.switch:
             return
         # make sure this is a good time to publish (always keep this as last check)
-        if not self.reminder.is_time(frequency=self.publish_freq.value):
+        if not self.reminder.is_time(frequency=self._get_param_value(self.publish_freq, -1)):
             return
         # turn 'compressed distorted image message' into 'raw distorted image'
         with self.profiler("/cb/image/decode"):
@@ -127,7 +127,24 @@ class RectifierNode(DTROS):
         # clear waiting room
         self._waiting_room = None
 
+    def _get_param_value(self, p, default=None):
+        """Return DTParam value robustly across dtros versions (property or method)."""
+        if p is None:
+            return default
+        v = getattr(p, 'value', None)
+        try:
+            if callable(v):
+                return v()
+            if v is not None:
+                return v
+        except Exception:
+            pass
+        return default
+
 
 if __name__ == "__main__":
     node = RectifierNode("rectifier_node")
     rospy.spin()
+
+
+

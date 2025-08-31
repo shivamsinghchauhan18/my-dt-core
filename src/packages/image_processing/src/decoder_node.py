@@ -34,7 +34,7 @@ class DecoderNode(DTROS):
 
         # subscribers
         self.sub_img = rospy.Subscriber(
-            "~image_in", CompressedImage, self.cb_image, queue_size=1, buff_size="10MB"
+            "~image_in", CompressedImage, self.cb_image, queue_size=1, buff_size=10 * 1024 * 1024
         )
 
         # publishers
